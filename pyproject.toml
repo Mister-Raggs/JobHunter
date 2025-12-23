@@ -1,0 +1,11 @@
+[project]
+name = "jobhunter"
+version = "0.0.1"
+description = "Job Hunter — track, deduplicate, and reason about job postings (MVP reset)."
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [{ name = "Raghav Kachroo" }]
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
