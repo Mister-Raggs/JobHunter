@@ -6,8 +6,14 @@ from typing import Dict, Any
 def load_store(path: Path) -> Dict[str, Any]:
     if not path.exists():
         return {"roles": {}}
-    with path.open("r", encoding="utf-8") as f:
-        return json.load(f)
+    try:
+        with path.open("r", encoding="utf-8") as f:
+            content = f.read().strip()
+            if not content:
+                return {"roles": {}}
+            return json.loads(content)
+    except (json.JSONDecodeError, IOError):
+        return {"roles": {}}
 
 
 def save_store(path: Path, store: Dict[str, Any]) -> None:
@@ -31,14 +37,9 @@ def update_role(store: Dict[str, Any], role_id: str, normalized: Dict[str, Any])
     roles = store.setdefault("roles", {})
     role = roles.get(role_id)
     if role is None:
-        roles[role_id] = {
-            "current": normalized,
-            "history": [normalized],
-        }
-        return {"status": "new", "changes": {}}
-    changes = diff_dict(role.get("current", {}), normalized)
-    if changes:
+        roles[role_id] = {"current": normalized}
+        return {"status": "new"}
+    if role.get("current") != normalized:
         role["current"] = normalized
-        role.setdefault("history", []).append(normalized)
-        return {"status": "updated", "changes": changes}
-    return {"status": "no-change", "changes": {}}
+        return {"status": "updated"}
+    return {"status": "no-change"}
