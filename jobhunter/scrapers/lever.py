@@ -6,6 +6,16 @@ import requests
 from bs4 import BeautifulSoup
 
 from ..normalize import normalize_company, normalize_title, normalize_location, canonical_url
+from ..logger import get_logger
+from ..retry import exponential_backoff
+
+logger = get_logger()
+
+
+@exponential_backoff(max_retries=3, base_delay=1.0, exceptions=(requests.exceptions.Timeout, requests.exceptions.ConnectionError))
+def _fetch_with_retry(url: str):
+    """Fetch URL with automatic retry on transient errors."""
+    return requests.get(url, timeout=15)
 
 
 def parse(url: str) -> Dict[str, Any]:
@@ -13,6 +23,7 @@ def parse(url: str) -> Dict[str, Any]:
 
     Raises ValueError with a user-friendly message on HTTP errors.
     """
+    logger.debug("Parsing Lever URL", url=url)
     u = canonical_url(url)
     p = urlparse(u)
     path_parts = [x for x in p.path.split("/") if x]
@@ -20,16 +31,24 @@ def parse(url: str) -> Dict[str, Any]:
     source_id = path_parts[1] if len(path_parts) > 1 else None
 
     try:
-        resp = requests.get(u, timeout=15)
+        logger.record_scrape_attempt("lever")
+        resp = _fetch_with_retry(u)
         resp.raise_for_status()
     except requests.exceptions.HTTPError as e:
         status = e.response.status_code if e.response is not None else "HTTPError"
+        logger.record_scrape_failure("lever", f"HTTPError_{status}")
         if status == 404:
+            logger.warning("Lever URL not found", url=u, status=404)
             raise ValueError(f"Lever URL not found (404): {u}")
+        logger.error("Lever request failed", url=u, status=status)
         raise ValueError(f"Lever request failed ({status}): {u}")
     except requests.exceptions.Timeout:
+        logger.record_scrape_failure("lever", "Timeout")
+        logger.warning("Lever request timed out", url=u)
         raise ValueError("Lever request timed out. Try again later.")
     except requests.exceptions.RequestException as e:
+        logger.record_scrape_failure("lever", "RequestException")
+        logger.error("Lever request error", url=u, error=str(e))
         raise ValueError(f"Lever request error: {e}")
 
     soup = BeautifulSoup(resp.text, "html.parser")
@@ -59,7 +78,7 @@ def parse(url: str) -> Dict[str, Any]:
         candidates = [x for x in re.split(r"[,|/]", loc_text) if x.strip()]
         loc = candidates[0] if candidates else loc_text
 
-    return {
+    result = {
         "source": "lever",
         "source_id": source_id,
         "company": normalize_company(company_slug),
@@ -67,6 +86,10 @@ def parse(url: str) -> Dict[str, Any]:
         "location": normalize_location(loc or ""),
         "url": u,
     }
+
+    logger.record_scrape_success("lever")
+    logger.debug("Successfully parsed Lever job", company=company_slug, title=title)
+    return result
 
 
 def list_company_posting_urls(company_slug: str) -> List[str]:

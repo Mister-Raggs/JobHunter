@@ -6,6 +6,16 @@ import requests
 from bs4 import BeautifulSoup
 
 from ..normalize import normalize_company, normalize_title, normalize_location, canonical_url
+from ..logger import get_logger
+from ..retry import exponential_backoff
+
+logger = get_logger()
+
+
+@exponential_backoff(max_retries=3, base_delay=1.0, exceptions=(requests.exceptions.Timeout, requests.exceptions.ConnectionError))
+def _fetch_with_retry(url: str):
+    """Fetch URL with automatic retry on transient errors."""
+    return requests.get(url, timeout=15)
 
 
 def parse(url: str) -> Dict[str, Any]:
@@ -13,6 +23,7 @@ def parse(url: str) -> Dict[str, Any]:
 
     URL shape: https://jobs.ashbyhq.com/<company>/<job-id-or-slug>
     """
+    logger.debug("Parsing Ashby URL", url=url)
     u = canonical_url(url)
     p = urlparse(u)
     parts = [x for x in p.path.split("/") if x]
@@ -20,16 +31,24 @@ def parse(url: str) -> Dict[str, Any]:
     source_id = parts[1] if len(parts) > 1 else None
 
     try:
-        resp = requests.get(u, timeout=15)
+        logger.record_scrape_attempt("ashby")
+        resp = _fetch_with_retry(u)
         resp.raise_for_status()
     except requests.exceptions.HTTPError as e:
         status = e.response.status_code if e.response is not None else "HTTPError"
+        logger.record_scrape_failure("ashby", f"HTTPError_{status}")
         if status == 404:
+            logger.warning("Ashby URL not found", url=u, status=404)
             raise ValueError(f"Ashby URL not found (404): {u}")
+        logger.error("Ashby request failed", url=u, status=status)
         raise ValueError(f"Ashby request failed ({status}): {u}")
     except requests.exceptions.Timeout:
+        logger.record_scrape_failure("ashby", "Timeout")
+        logger.warning("Ashby request timed out", url=u)
         raise ValueError("Ashby request timed out. Try again later.")
     except requests.exceptions.RequestException as e:
+        logger.record_scrape_failure("ashby", "RequestException")
+        logger.error("Ashby request error", url=u, error=str(e))
         raise ValueError(f"Ashby request error: {e}")
 
     soup = BeautifulSoup(resp.text, "html.parser")
@@ -53,7 +72,7 @@ def parse(url: str) -> Dict[str, Any]:
     if loc_el and loc_el.get_text(strip=True):
         loc = loc_el.get_text(" ", strip=True)
 
-    return {
+    result = {
         "source": "ashby",
         "source_id": source_id,
         "company": normalize_company(company_slug),
@@ -61,6 +80,10 @@ def parse(url: str) -> Dict[str, Any]:
         "location": normalize_location(loc or ""),
         "url": u,
     }
+
+    logger.record_scrape_success("ashby")
+    logger.debug("Successfully parsed Ashby job", company=company_slug, title=title)
+    return result
 
 
 def list_company_posting_urls(company_slug: str) -> List[str]:

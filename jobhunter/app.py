@@ -6,6 +6,7 @@ import os
 from .env import load_env
 
 from . import __version__
+from .logger import get_logger
 from .normalize import (
     normalize_title,
     normalize_company,
@@ -17,6 +18,8 @@ from .storage import load_store, save_store, update_role
 from .schema import validate_posting
 from .search import build_query, build_query_urls
 from .google_results import fetch_google_links, filter_ats_links
+
+logger = get_logger()
 def ingest_posting(posting: dict, store_path: Path) -> dict:
     errors = validate_posting(posting)
     if errors:
@@ -164,6 +167,8 @@ def cmd_query_scrape(args: argparse.Namespace) -> None:
             print(f"[error] {url} -> {e}")
             skip += 1
     print(f"Done. new={new} updated={upd} no-change={same} skipped={skip}")
+    print("\n--- Metrics Summary ---")
+    logger.log_metrics_summary()
 
 
 def cmd_scrape(args: argparse.Namespace) -> None:

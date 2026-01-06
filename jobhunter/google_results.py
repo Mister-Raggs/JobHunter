@@ -2,6 +2,10 @@ from typing import List, Optional
 import os
 import requests
 
+from .logger import get_logger
+from .retry import exponential_backoff
+
+logger = get_logger()
 GOOGLE_CUSTOM_SEARCH_ENDPOINT = "https://www.googleapis.com/customsearch/v1"
 
 
@@ -19,6 +23,12 @@ def _date_restrict(days: Optional[int]) -> Optional[str]:
     if days <= 30:
         return "m1"  # past month
     return "y1"  # past year
+
+
+@exponential_backoff(max_retries=3, base_delay=1.0, exceptions=(requests.exceptions.Timeout, requests.exceptions.ConnectionError))
+def _fetch_with_retry(url: str, params: dict):
+    """Fetch with exponential backoff retry logic."""
+    return requests.get(url, params=params, timeout=20)
 
 
 def fetch_google_links(query: str, api_key: Optional[str] = None, cse_id: Optional[str] = None, num: int = 10, days: Optional[int] = None, site_search: Optional[str] = None) -> List[str]:
@@ -40,8 +50,10 @@ def fetch_google_links(query: str, api_key: Optional[str] = None, cse_id: Option
     cx = cse_id or os.getenv("GOOGLE_CSE_ID")
 
     if not key:
+        logger.error("Missing GOOGLE_API_KEY")
         raise ValueError("Missing GOOGLE_API_KEY. Set env var or pass api_key.")
     if not cx:
+        logger.error("Missing GOOGLE_CSE_ID")
         raise ValueError("Missing GOOGLE_CSE_ID. Set env var or pass cse_id.")
 
     # Google Custom Search API max results per request is 10
@@ -62,15 +74,36 @@ def fetch_google_links(query: str, api_key: Optional[str] = None, cse_id: Option
     if date_restrict:
         params["dateRestrict"] = date_restrict
 
-    r = requests.get(GOOGLE_CUSTOM_SEARCH_ENDPOINT, params=params, timeout=20)
-    r.raise_for_status()
-    data = r.json()
+    logger.record_api_call()
+    logger.debug("Calling Google Custom Search API", extra={"query": query, "num": num, "site_search": site_search})
+
+    try:
+        r = _fetch_with_retry(GOOGLE_CUSTOM_SEARCH_ENDPOINT, params)
+        r.raise_for_status()
+    except requests.exceptions.HTTPError as e:
+        status = e.response.status_code if e.response is not None else "HTTPError"
+        logger.error("Google API HTTP error", extra={"status": status, "query": query})
+        raise
+    except requests.exceptions.Timeout:
+        logger.error("Google API request timeout", extra={"query": query})
+        raise
+    except requests.exceptions.RequestException as e:
+        logger.error("Google API request error", extra={"error": str(e), "query": query})
+        raise
+
+    try:
+        data = r.json()
+    except ValueError as e:
+        logger.error("Failed to parse Google API JSON response", extra={"error": str(e)})
+        raise ValueError(f"Invalid JSON response from Google API: {e}")
 
     results = []
     for item in data.get("items", []):
         link = item.get("link")
         if link:
             results.append(link)
+
+    logger.info("Google Custom Search API returned results", extra={"query": query, "count": len(results)})
     return results
 
 
