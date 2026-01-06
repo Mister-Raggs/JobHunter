@@ -1,4 +1,5 @@
 import json
+from datetime import datetime
 from pathlib import Path
 from typing import Dict, Any
 
@@ -37,9 +38,15 @@ def update_role(store: Dict[str, Any], role_id: str, normalized: Dict[str, Any])
     roles = store.setdefault("roles", {})
     role = roles.get(role_id)
     if role is None:
-        roles[role_id] = {"current": normalized}
+        # New job: add it with created_at timestamp
+        normalized_with_timestamp = {**normalized, "created_at": datetime.now().isoformat()}
+        roles[role_id] = {"current": normalized_with_timestamp}
         return {"status": "new"}
     if role.get("current") != normalized:
-        role["current"] = normalized
+        # Preserve existing created_at timestamp, update other fields
+        current = role.get("current", {})
+        created_at = current.get("created_at", datetime.now().isoformat())
+        normalized_with_timestamp = {**normalized, "created_at": created_at}
+        role["current"] = normalized_with_timestamp
         return {"status": "updated"}
     return {"status": "no-change"}

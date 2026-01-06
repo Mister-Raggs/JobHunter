@@ -7,6 +7,7 @@ from .env import load_env
 
 from . import __version__
 from .logger import get_logger
+from .cleanup import cleanup_stale_jobs
 from .normalize import (
     normalize_title,
     normalize_company,
@@ -167,6 +168,16 @@ def cmd_query_scrape(args: argparse.Namespace) -> None:
             print(f"[error] {url} -> {e}")
             skip += 1
     print(f"Done. new={new} updated={upd} no-change={same} skipped={skip}")
+    
+    # Run cleanup to remove stale jobs (older than 7 days)
+    print("\n--- Cleaning up stale jobs (>7 days old) ---")
+    before, after = cleanup_stale_jobs(store_path, days=7)
+    if before > after:
+        removed = before - after
+        print(f"Removed {removed} stale job(s). Jobs remaining: {after}")
+    else:
+        print(f"No stale jobs to remove. Jobs in store: {after}")
+    
     print("\n--- Metrics Summary ---")
     logger.log_metrics_summary()
 
