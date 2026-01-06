@@ -1,6 +1,6 @@
 # Job Hunter: Implementation Tracker
 
-**Last Updated**: January 3, 2026
+**Last Updated**: January 6, 2026
 
 ---
 
@@ -371,9 +371,73 @@ Metrics Visible:
 
 ---
 
+## Phase 2: Stale Job Cleanup: Complete ✅ (January 6, 2026)
+
+**Problem Solved**: Job store was accumulating old job postings. Need automatic cleanup to keep only recent relevant jobs.
+
+**What We Implemented**:
+- **Stale Job Detection** (`jobhunter/cleanup.py`): Removes jobs older than 7 days (configurable)
+- **Timestamp Tracking** (`jobhunter/storage.py`): All new jobs get `created_at` timestamp, preserved on updates
+- **Backward Compatibility**: Existing 99 jobs initialized with current timestamp on first run
+- **Integration into Pipeline**: Cleanup runs automatically after `query-scrape`
+- **Comprehensive Logging**: Detailed metrics (jobs_initialized, jobs_removed, etc.)
+- **Test Coverage**: 5 tests covering removal, initialization, edge cases (100% passing)
+
+**How It Works**:
+```python
+# Every query-scrape run:
+1. Scrape new jobs and add to store
+2. All jobs get created_at timestamp
+3. Cleanup removes jobs older than 7 days
+4. User sees removal summary
+5. Metrics logged and displayed
+```
+
+**Test Results**:
+```
+Cleanup Test Suite: 5 tests, 100% passing
+- Removes stale jobs (>7 days old)
+- Initializes missing timestamps
+- Handles missing/empty store files
+- Preserves recent jobs
+
+Integration Test Results:
+- 12 new jobs scraped
+- 99 existing jobs initialized with timestamp
+- 0 jobs removed (all < 7 days old)
+- 111 total jobs in store
+- Cleanup metrics logged successfully
+```
+
+**Benefits**:
+- Store stays clean and focused on relevant jobs
+- No manual cleanup needed
+- Timestamps enable future filtering/sorting features
+- Automatic & transparent process
+
+---
+
 ## Roadmap: What's Next
 
-### **Updated Strategy (January 3, 2026)**: Reality-Based Custom Site Scraping
+### Phase 3: Database Migration (SQL with Prisma)
+
+**Next Steps**:
+1. Set up Prisma schema with SQLite (or PostgreSQL)
+2. Migrate 111+ jobs from JSON to database
+3. Update storage.py to use Prisma instead of JSON
+4. Same cleanup logic but with SQL queries
+
+### Phase 4: Web UI
+
+**Next Steps**:
+1. Build FastAPI backend for REST endpoints
+2. Create responsive HTML/CSS/JS frontend
+3. Features: search, filter by company/location/platform, sort by date
+4. Add `ui` command to launch web server
+
+---
+
+## Updated Strategy (January 3, 2026): Reality-Based Custom Site Scraping
 
 After analyzing actual custom career pages (Meta, Apple, etc.), we discovered that initial assumptions about JSON-LD and simple HTML parsing were incorrect. Modern career sites use:
 - **React SPAs** with client-side rendering (Meta)
