@@ -15,7 +15,7 @@ from .normalize import (
     canonical_url,
     compute_role_id,
 )
-from .storage import load_store, save_store, update_role
+from .storage import upsert_job, get_all_jobs
 from .schema import validate_posting
 from .search import build_query, build_query_urls
 from .google_results import fetch_google_links, filter_ats_links
@@ -113,9 +113,11 @@ def ingest_posting(posting: dict, store_path: Path) -> dict:
     }
 
     role_id = compute_role_id(company, source, source_id, url)
-    store = load_store(store_path)
-    result = update_role(store, role_id, normalized)
-    save_store(store_path, store)
+
+    # Derive database path from store path
+    db_path = store_path.parent / "jobs.db"
+    result = upsert_job(role_id, normalized, db_path)
+
     return {"role_id": role_id, **result}
 
 
@@ -316,23 +318,28 @@ def cmd_scrape_board(args: argparse.Namespace) -> None:
 
 def cmd_list(args: argparse.Namespace) -> None:
     store_path = Path(args.store)
-    if not store_path.exists():
-        print(f"Store not found: {store_path}")
+
+    # Derive database path from store path
+    db_path = store_path.parent / "jobs.db"
+
+    if not db_path.exists():
+        print(f"Database not found: {db_path}")
         return
-    store = load_store(store_path)
-    roles = store.get("roles", {})
-    if not roles:
-        print("No roles in store.")
+
+    jobs = get_all_jobs(db_path)
+
+    if not jobs:
+        print("No jobs in database.")
         return
-    print(f"Found {len(roles)} roles in {store_path}:\n")
-    for role_id, role_data in roles.items():
-        current = role_data.get("current", {})
-        print(f"ID: {role_id}")
-        print(f"  Company: {current.get('company')}")
-        print(f"  Title: {current.get('title')}")
-        print(f"  Location: {current.get('location')}")
-        print(f"  URL: {current.get('url')}")
-        print(f"  Source: {current.get('source')}")
+
+    print(f"Found {len(jobs)} jobs in {db_path}:\n")
+    for job in jobs:
+        print(f"ID: {job['role_id']}")
+        print(f"  Company: {job['company']}")
+        print(f"  Title: {job['title']}")
+        print(f"  Location: {job['location']}")
+        print(f"  URL: {job['url']}")
+        print(f"  Source: {job['source']}")
         print()
 
 

@@ -1,6 +1,5 @@
 """Tests for cleanup functionality."""
 
-import json
 import tempfile
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -8,6 +7,7 @@ from pathlib import Path
 import pytest
 
 from jobhunter.cleanup import cleanup_stale_jobs
+from jobhunter.database import Job, init_database, get_session
 
 
 class TestCleanup:
@@ -16,42 +16,44 @@ class TestCleanup:
     def test_cleanup_removes_stale_jobs(self):
         """Verify that jobs older than threshold are removed."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            store_path = Path(tmpdir) / "store.json"
+            store_path = Path(tmpdir) / "store.json"  # Compatibility - derives db path from this
+            db_path = Path(tmpdir) / "jobs.db"
 
-            # Create store with jobs at different ages
+            # Initialize database and add test jobs
+            init_database(db_path)
+            session = get_session(db_path)
+
             now = datetime.now()
-            old_date = (now - timedelta(days=10)).isoformat()  # 10 days old
-            new_date = (now - timedelta(days=2)).isoformat()   # 2 days old
+            old_date = now - timedelta(days=10)  # 10 days old
+            new_date = now - timedelta(days=2)   # 2 days old
 
-            store = {
-                "roles": {
-                    "company1|source:1": {
-                        "current": {
-                            "company": "company1",
-                            "title": "old job",
-                            "location": "remote",
-                            "url": "https://example.com/1",
-                            "source": "source",
-                            "source_id": "1",
-                            "created_at": old_date,
-                        }
-                    },
-                    "company2|source:2": {
-                        "current": {
-                            "company": "company2",
-                            "title": "new job",
-                            "location": "remote",
-                            "url": "https://example.com/2",
-                            "source": "source",
-                            "source_id": "2",
-                            "created_at": new_date,
-                        }
-                    },
-                }
-            }
+            old_job = Job(
+                role_id="company1|source:1",
+                company="company1",
+                title="old job",
+                location="remote",
+                url="https://example.com/1",
+                source="source",
+                source_id="1",
+                created_at=old_date,
+                updated_at=old_date,
+            )
+            new_job = Job(
+                role_id="company2|source:2",
+                company="company2",
+                title="new job",
+                location="remote",
+                url="https://example.com/2",
+                source="source",
+                source_id="2",
+                created_at=new_date,
+                updated_at=new_date,
+            )
 
-            with open(store_path, "w") as f:
-                json.dump(store, f)
+            session.add(old_job)
+            session.add(new_job)
+            session.commit()
+            session.close()
 
             # Run cleanup
             before, after = cleanup_stale_jobs(store_path, days=7)
@@ -61,62 +63,31 @@ class TestCleanup:
             assert after == 1
 
             # Verify the old job was removed and new one remains
-            with open(store_path, "r") as f:
-                cleaned_store = json.load(f)
-
-            assert len(cleaned_store["roles"]) == 1
-            assert "company2|source:2" in cleaned_store["roles"]
-            assert "company1|source:1" not in cleaned_store["roles"]
-
-    def test_cleanup_initializes_missing_timestamps(self):
-        """Verify that jobs without created_at get initialized."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            store_path = Path(tmpdir) / "store.json"
-
-            # Create store with jobs missing created_at
-            store = {
-                "roles": {
-                    "company1|source:1": {
-                        "current": {
-                            "company": "company1",
-                            "title": "job without timestamp",
-                            "location": "remote",
-                            "url": "https://example.com/1",
-                            "source": "source",
-                            "source_id": "1",
-                        }
-                    },
-                }
-            }
-
-            with open(store_path, "w") as f:
-                json.dump(store, f)
-
-            # Run cleanup
-            before, after = cleanup_stale_jobs(store_path, days=7)
-
-            # Verify timestamp was added
-            with open(store_path, "r") as f:
-                cleaned_store = json.load(f)
-
-            assert "created_at" in cleaned_store["roles"]["company1|source:1"]["current"]
-            assert before == after  # No jobs removed
+            session = get_session(db_path)
+            remaining_jobs = session.query(Job).all()
+            assert len(remaining_jobs) == 1
+            assert remaining_jobs[0].role_id == "company2|source:2"
+            session.close()
 
     def test_cleanup_handles_missing_store(self):
-        """Verify cleanup handles missing store file gracefully."""
+        """Verify cleanup handles missing database gracefully."""
         with tempfile.TemporaryDirectory() as tmpdir:
             store_path = Path(tmpdir) / "nonexistent.json"
+            # Database doesn't exist yet
 
             before, after = cleanup_stale_jobs(store_path, days=7)
 
             assert before == 0
             assert after == 0
 
-    def test_cleanup_handles_empty_store(self):
-        """Verify cleanup handles empty store file gracefully."""
+    def test_cleanup_handles_empty_database(self):
+        """Verify cleanup handles empty database gracefully."""
         with tempfile.TemporaryDirectory() as tmpdir:
             store_path = Path(tmpdir) / "store.json"
-            store_path.write_text("")
+            db_path = Path(tmpdir) / "jobs.db"
+
+            # Initialize empty database
+            init_database(db_path)
 
             before, after = cleanup_stale_jobs(store_path, days=7)
 
@@ -127,29 +98,30 @@ class TestCleanup:
         """Verify that recently created jobs are always preserved."""
         with tempfile.TemporaryDirectory() as tmpdir:
             store_path = Path(tmpdir) / "store.json"
+            db_path = Path(tmpdir) / "jobs.db"
 
-            # Create store with jobs at current time
-            now = datetime.now().isoformat()
+            # Initialize database and add recent jobs
+            init_database(db_path)
+            session = get_session(db_path)
 
-            store = {
-                "roles": {
-                    f"company{i}|source:{i}": {
-                        "current": {
-                            "company": f"company{i}",
-                            "title": f"job {i}",
-                            "location": "remote",
-                            "url": f"https://example.com/{i}",
-                            "source": "source",
-                            "source_id": str(i),
-                            "created_at": now,
-                        }
-                    }
-                    for i in range(5)
-                }
-            }
+            now = datetime.now()
 
-            with open(store_path, "w") as f:
-                json.dump(store, f)
+            for i in range(5):
+                job = Job(
+                    role_id=f"company{i}|source:{i}",
+                    company=f"company{i}",
+                    title=f"job {i}",
+                    location="remote",
+                    url=f"https://example.com/{i}",
+                    source="source",
+                    source_id=str(i),
+                    created_at=now,
+                    updated_at=now,
+                )
+                session.add(job)
+
+            session.commit()
+            session.close()
 
             # Run cleanup
             before, after = cleanup_stale_jobs(store_path, days=7)

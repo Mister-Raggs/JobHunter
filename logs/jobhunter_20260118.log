@@ -7,3 +7,27 @@
 2026-01-18 11:46:48 | INFO     | jobhunter:105 | Cleanup completed | Context: {"extra": {"jobs_initialized": 0, "jobs_removed": 1, "jobs_before": 2, "jobs_after": 1}}
 2026-01-18 11:46:48 | INFO     | jobhunter:105 | Cleanup completed | Context: {"extra": {"jobs_initialized": 1, "jobs_removed": 0, "jobs_before": 1, "jobs_after": 1}}
 2026-01-18 11:46:48 | INFO     | jobhunter:105 | Cleanup completed | Context: {"extra": {"jobs_initialized": 0, "jobs_removed": 0, "jobs_before": 5, "jobs_after": 5}}
+2026-01-18 12:22:22 | INFO     | jobhunter:105 | Cleanup completed | Context: {"extra": {"jobs_initialized": 0, "jobs_removed": 1, "jobs_before": 2, "jobs_after": 1}}
+2026-01-18 12:22:22 | INFO     | jobhunter:105 | Cleanup completed | Context: {"extra": {"jobs_initialized": 1, "jobs_removed": 0, "jobs_before": 1, "jobs_after": 1}}
+2026-01-18 12:22:22 | INFO     | jobhunter:105 | Cleanup completed | Context: {"extra": {"jobs_initialized": 0, "jobs_removed": 0, "jobs_before": 5, "jobs_after": 5}}
+2026-01-18 12:27:57 | INFO     | jobhunter:105 | Initializing new database | Context: {"extra": {"path": "/var/folders/1h/08_sts9j74n6l8gzp9tzl19w0000gn/T/tmpv6sutp7e/jobs.db"}}
+2026-01-18 12:27:57 | INFO     | jobhunter:105 | Cleanup complete: 0 removed, 0 remaining | Context: {"extra": {"jobs_before": 0, "jobs_removed": 0, "jobs_after": 0, "days_threshold": 7}}
+2026-01-18 12:28:40 | INFO     | jobhunter:105 | Deleted 1 stale jobs | Context: {"extra": {"days": 7, "before": 2, "after": 1}}
+2026-01-18 12:28:40 | INFO     | jobhunter:105 | Cleanup complete: 1 removed, 1 remaining | Context: {"extra": {"jobs_before": 2, "jobs_removed": 1, "jobs_after": 1, "days_threshold": 7}}
+2026-01-18 12:28:40 | INFO     | jobhunter:105 | Initializing new database | Context: {"extra": {"path": "/var/folders/1h/08_sts9j74n6l8gzp9tzl19w0000gn/T/tmp7l8jnbnk/jobs.db"}}
+2026-01-18 12:28:40 | INFO     | jobhunter:105 | Cleanup complete: 0 removed, 0 remaining | Context: {"extra": {"jobs_before": 0, "jobs_removed": 0, "jobs_after": 0, "days_threshold": 7}}
+2026-01-18 12:28:40 | INFO     | jobhunter:105 | Cleanup complete: 0 removed, 0 remaining | Context: {"extra": {"jobs_before": 0, "jobs_removed": 0, "jobs_after": 0, "days_threshold": 7}}
+2026-01-18 12:28:40 | INFO     | jobhunter:105 | Cleanup complete: 0 removed, 5 remaining | Context: {"extra": {"jobs_before": 5, "jobs_removed": 0, "jobs_after": 5, "days_threshold": 7}}
+2026-01-18 12:29:00 | WARNING  | jobhunter:105 | load_store() is deprecated, use get_all_jobs() instead
+2026-01-18 12:31:10 | INFO     | jobhunter:105 | Deleted 1 stale jobs | Context: {"extra": {"days": 7, "before": 2, "after": 1}}
+2026-01-18 12:31:10 | INFO     | jobhunter:105 | Cleanup complete: 1 removed, 1 remaining | Context: {"extra": {"jobs_before": 2, "jobs_removed": 1, "jobs_after": 1, "days_threshold": 7}}
+2026-01-18 12:31:10 | INFO     | jobhunter:105 | Initializing new database | Context: {"extra": {"path": "/var/folders/1h/08_sts9j74n6l8gzp9tzl19w0000gn/T/tmp7x91yfbs/jobs.db"}}
+2026-01-18 12:31:10 | INFO     | jobhunter:105 | Cleanup complete: 0 removed, 0 remaining | Context: {"extra": {"jobs_before": 0, "jobs_removed": 0, "jobs_after": 0, "days_threshold": 7}}
+2026-01-18 12:31:10 | INFO     | jobhunter:105 | Cleanup complete: 0 removed, 0 remaining | Context: {"extra": {"jobs_before": 0, "jobs_removed": 0, "jobs_after": 0, "days_threshold": 7}}
+2026-01-18 12:31:10 | INFO     | jobhunter:105 | Cleanup complete: 0 removed, 5 remaining | Context: {"extra": {"jobs_before": 5, "jobs_removed": 0, "jobs_after": 5, "days_threshold": 7}}
+2026-01-18 12:32:18 | INFO     | jobhunter:105 | Deleted 1 stale jobs | Context: {"extra": {"days": 7, "before": 2, "after": 1}}
+2026-01-18 12:32:18 | INFO     | jobhunter:105 | Cleanup complete: 1 removed, 1 remaining | Context: {"extra": {"jobs_before": 2, "jobs_removed": 1, "jobs_after": 1, "days_threshold": 7}}
+2026-01-18 12:32:18 | INFO     | jobhunter:105 | Initializing new database | Context: {"extra": {"path": "/var/folders/1h/08_sts9j74n6l8gzp9tzl19w0000gn/T/tmpucw1okb7/jobs.db"}}
+2026-01-18 12:32:18 | INFO     | jobhunter:105 | Cleanup complete: 0 removed, 0 remaining | Context: {"extra": {"jobs_before": 0, "jobs_removed": 0, "jobs_after": 0, "days_threshold": 7}}
+2026-01-18 12:32:18 | INFO     | jobhunter:105 | Cleanup complete: 0 removed, 0 remaining | Context: {"extra": {"jobs_before": 0, "jobs_removed": 0, "jobs_after": 0, "days_threshold": 7}}
+2026-01-18 12:32:18 | INFO     | jobhunter:105 | Cleanup complete: 0 removed, 5 remaining | Context: {"extra": {"jobs_before": 5, "jobs_removed": 0, "jobs_after": 5, "days_threshold": 7}}

@@ -5,11 +5,10 @@ Stale jobs are those older than a specified number of days (default: 7).
 This prevents the job store from accumulating obsolete listings.
 """
 
-import json
-from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Tuple
 
+from .storage import delete_stale_jobs
 from .logger import get_logger
 
 logger = get_logger()
@@ -19,34 +18,35 @@ def cleanup_stale_jobs(store_path: Path, days: int = 7) -> Tuple[int, int]:
     """
     Remove job postings older than the specified number of days.
 
-    Initializes created_at timestamps for existing jobs on first run.
-    On subsequent runs, removes jobs where created_at is older than the threshold.
-
     Args:
-        store_path: Path to store.json file
+        store_path: Path to store file (will derive database path from this)
         days: Number of days to keep jobs (default: 7)
 
     Returns:
         Tuple of (total_jobs_before, total_jobs_after)
         Difference = jobs_removed
     """
-    if not store_path.exists():
-        logger.debug("Store file does not exist, nothing to clean", extra={"path": str(store_path)})
-        return (0, 0)
+    # Derive database path from store path
+    db_path = store_path.parent / "jobs.db"
 
     try:
-        with open(store_path, "r") as f:
-            content = f.read().strip()
-            if not content:
-                logger.debug("Store file is empty, nothing to clean")
-                return (0, 0)
-            store = json.loads(content)
-    except (json.JSONDecodeError, IOError) as e:
-        logger.error("Failed to read store file for cleanup", extra={"error": str(e), "path": str(store_path)})
-        return (0, 0)
+        jobs_before, jobs_after = delete_stale_jobs(days=days, db_path=db_path)
+        jobs_removed = jobs_before - jobs_after
 
-    if "roles" not in store:
-        logger.debug("Store has no roles, nothing to clean")
+        logger.info(
+            f"Cleanup complete: {jobs_removed} removed, {jobs_after} remaining",
+            extra={
+                "jobs_before": jobs_before,
+                "jobs_removed": jobs_removed,
+                "jobs_after": jobs_after,
+                "days_threshold": days,
+            }
+        )
+
+        return (jobs_before, jobs_after)
+
+    except Exception as e:
+        logger.error(f"Cleanup failed: {e}", extra={"error": str(e), "days": days})
         return (0, 0)
 
     roles = store["roles"]

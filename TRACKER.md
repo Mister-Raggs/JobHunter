@@ -426,7 +426,7 @@ Integration Test Results:
 
 **Solution**:
 - Added `get_scraper_for_url(url)`: Single source of truth for URL→scraper mapping
-- Added `get_scraper_by_platform(platform)`: Platform name→scraper mapping  
+- Added `get_scraper_by_platform(platform)`: Platform name→scraper mapping
 - Added `parse_roles(roles_str)`: Comma-separated role parsing
 
 **Impact**: Eliminated duplication in `cmd_query_scrape`, `cmd_scrape`, `cmd_scrape_file`, `cmd_scrape_board`, and `cmd_query`
