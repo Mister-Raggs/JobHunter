@@ -2,20 +2,13 @@ from typing import Dict, Any, List
 from urllib.parse import urlparse
 import re
 
-import requests
 from bs4 import BeautifulSoup
 
 from ..normalize import normalize_company, normalize_title, normalize_location, canonical_url
 from ..logger import get_logger
-from ..retry import exponential_backoff
+from .common import fetch_with_error_handling, deduplicate_urls
 
 logger = get_logger()
-
-
-@exponential_backoff(max_retries=3, base_delay=1.0, exceptions=(requests.exceptions.Timeout, requests.exceptions.ConnectionError))
-def _fetch_with_retry(url: str):
-    """Fetch URL with automatic retry on transient errors."""
-    return requests.get(url, timeout=15)
 
 
 def parse(url: str) -> Dict[str, Any]:
@@ -37,27 +30,7 @@ def parse(url: str) -> Dict[str, Any]:
     except requests.exceptions.HTTPError as e:
         status = e.response.status_code if e.response is not None else "HTTPError"
         logger.record_scrape_failure("ashby", f"HTTPError_{status}")
-        if status == 404:
-            logger.warning("Ashby URL not found", url=u, status=404)
-            raise ValueError(f"Ashby URL not found (404): {u}")
-        logger.error("Ashby request failed", url=u, status=status)
-        raise ValueError(f"Ashby request failed ({status}): {u}")
-    except requests.exceptions.Timeout:
-        logger.record_scrape_failure("ashby", "Timeout")
-        logger.warning("Ashby request timed out", url=u)
-        raise ValueError("Ashby request timed out. Try again later.")
-    except requests.exceptions.RequestException as e:
-        logger.record_scrape_failure("ashby", "RequestException")
-        logger.error("Ashby request error", url=u, error=str(e))
-        raise ValueError(f"Ashby request error: {e}")
-
-    soup = BeautifulSoup(resp.text, "html.parser")
-
-    # Title heuristics
-    title = None
-    h1 = soup.find("h1")
-    if h1 and h1.get_text(strip=True):
-        title = h1.get_text(strip=True)
+    resp = fetch_with_error_handling(u, "ashby")        title = h1.get_text(strip=True)
     if not title:
         t = soup.find("title")
         if t and t.get_text(strip=True):
@@ -89,20 +62,10 @@ def parse(url: str) -> Dict[str, Any]:
 def list_company_posting_urls(company_slug: str) -> List[str]:
     """List posting URLs from the company's Ashby board page."""
     board_url = f"https://jobs.ashbyhq.com/{company_slug}"
-    try:
-        resp = requests.get(board_url, timeout=15)
-        resp.raise_for_status()
-    except requests.exceptions.HTTPError as e:
-        status = e.response.status_code if e.response is not None else "HTTPError"
-        if status == 404:
-            raise ValueError(f"Ashby board not found (404): {board_url}")
-        raise ValueError(f"Ashby board request failed ({status}): {board_url}")
-    except requests.exceptions.Timeout:
-        raise ValueError("Ashby board request timed out. Try again later.")
-    except requests.exceptions.RequestException as e:
-        raise ValueError(f"Ashby board request error: {e}")
 
+    resp = fetch_with_error_handling(board_url, "ashby")
     soup = BeautifulSoup(resp.text, "html.parser")
+
     links: List[str] = []
     for a in soup.find_all("a", href=True):
         href = a["href"]
@@ -111,10 +74,6 @@ def list_company_posting_urls(company_slug: str) -> List[str]:
                 links.append(canonical_url(href))
             else:
                 links.append(canonical_url(f"https://jobs.ashbyhq.com{href}"))
-    seen = set()
-    result = []
-    for u in links:
-        if u not in seen and "/jobs/" not in u:  # Ashby URLs generally without '/jobs/' segment
-            seen.add(u)
-            result.append(u)
-    return result
+
+    # Filter out '/jobs/' segments and deduplicate
+    return [u for u in deduplicate_urls(links) if "/jobs/" not in u]

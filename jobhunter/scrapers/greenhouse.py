@@ -2,20 +2,13 @@ from typing import Dict, Any, List
 from urllib.parse import urlparse
 import re
 
-import requests
 from bs4 import BeautifulSoup
 
 from ..normalize import normalize_company, normalize_title, normalize_location, canonical_url
 from ..logger import get_logger
-from ..retry import exponential_backoff, is_transient_error
+from .common import fetch_with_error_handling, deduplicate_urls
 
 logger = get_logger()
-
-
-@exponential_backoff(max_retries=3, base_delay=1.0, exceptions=(requests.exceptions.Timeout, requests.exceptions.ConnectionError))
-def _fetch_with_retry(url: str):
-    """Fetch URL with automatic retry on transient errors."""
-    return requests.get(url, timeout=15)
 
 
 def parse(url: str) -> Dict[str, Any]:
@@ -30,27 +23,7 @@ def parse(url: str) -> Dict[str, Any]:
     company_slug = path_parts[0] if len(path_parts) > 0 else ""
     source_id = path_parts[2] if len(path_parts) > 2 and path_parts[1] == "jobs" else None
 
-    try:
-        logger.record_scrape_attempt("greenhouse")
-        resp = _fetch_with_retry(u)
-        resp.raise_for_status()
-    except requests.exceptions.HTTPError as e:
-        status = e.response.status_code if e.response is not None else "HTTPError"
-        logger.record_scrape_failure("greenhouse", f"HTTPError_{status}")
-        if status == 404:
-            logger.warning("Greenhouse URL not found", url=u, status=404)
-            raise ValueError(f"Greenhouse URL not found (404): {u}")
-        logger.error("Greenhouse request failed", url=u, status=status)
-        raise ValueError(f"Greenhouse request failed ({status}): {u}")
-    except requests.exceptions.Timeout:
-        logger.record_scrape_failure("greenhouse", "Timeout")
-        logger.warning("Greenhouse request timed out", url=u)
-        raise ValueError("Greenhouse request timed out. Try again later.")
-    except requests.exceptions.RequestException as e:
-        logger.record_scrape_failure("greenhouse", "RequestException")
-        logger.error("Greenhouse request error", url=u, error=str(e))
-        raise ValueError(f"Greenhouse request error: {e}")
-
+    resp = fetch_with_error_handling(u, "greenhouse")
     soup = BeautifulSoup(resp.text, "html.parser")
 
     # Title heuristics
@@ -111,17 +84,16 @@ def list_company_posting_urls(company_slug: str) -> List[str]:
     soup = BeautifulSoup(resp.text, "html.parser")
     links = []
     for a in soup.find_all("a", href=True):
+    resp = fetch_with_error_handling(board_url, "greenhouse")
+    soup = BeautifulSoup(resp.text, "html.parser")
+
+    links = []
+    for a in soup.find_all("a", href=True):
         href = a["href"]
         if "/jobs/" in href and company_slug in href:
             if href.startswith("http"):
                 links.append(canonical_url(href))
             else:
                 links.append(canonical_url(f"https://boards.greenhouse.io{href}"))
-    # dedupe while preserving order
-    seen = set()
-    result = []
-    for u in links:
-        if u not in seen:
-            seen.add(u)
-            result.append(u)
-    return result
+
+    return deduplicate_urls(links)

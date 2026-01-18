@@ -17,12 +17,12 @@ class TestCleanup:
         """Verify that jobs older than threshold are removed."""
         with tempfile.TemporaryDirectory() as tmpdir:
             store_path = Path(tmpdir) / "store.json"
-            
+
             # Create store with jobs at different ages
             now = datetime.now()
             old_date = (now - timedelta(days=10)).isoformat()  # 10 days old
             new_date = (now - timedelta(days=2)).isoformat()   # 2 days old
-            
+
             store = {
                 "roles": {
                     "company1|source:1": {
@@ -49,21 +49,21 @@ class TestCleanup:
                     },
                 }
             }
-            
+
             with open(store_path, "w") as f:
                 json.dump(store, f)
-            
+
             # Run cleanup
             before, after = cleanup_stale_jobs(store_path, days=7)
-            
+
             # Verify results
             assert before == 2
             assert after == 1
-            
+
             # Verify the old job was removed and new one remains
             with open(store_path, "r") as f:
                 cleaned_store = json.load(f)
-            
+
             assert len(cleaned_store["roles"]) == 1
             assert "company2|source:2" in cleaned_store["roles"]
             assert "company1|source:1" not in cleaned_store["roles"]
@@ -72,7 +72,7 @@ class TestCleanup:
         """Verify that jobs without created_at get initialized."""
         with tempfile.TemporaryDirectory() as tmpdir:
             store_path = Path(tmpdir) / "store.json"
-            
+
             # Create store with jobs missing created_at
             store = {
                 "roles": {
@@ -88,27 +88,27 @@ class TestCleanup:
                     },
                 }
             }
-            
+
             with open(store_path, "w") as f:
                 json.dump(store, f)
-            
+
             # Run cleanup
             before, after = cleanup_stale_jobs(store_path, days=7)
-            
+
             # Verify timestamp was added
             with open(store_path, "r") as f:
                 cleaned_store = json.load(f)
-            
+
             assert "created_at" in cleaned_store["roles"]["company1|source:1"]["current"]
             assert before == after  # No jobs removed
-            
+
     def test_cleanup_handles_missing_store(self):
         """Verify cleanup handles missing store file gracefully."""
         with tempfile.TemporaryDirectory() as tmpdir:
             store_path = Path(tmpdir) / "nonexistent.json"
-            
+
             before, after = cleanup_stale_jobs(store_path, days=7)
-            
+
             assert before == 0
             assert after == 0
 
@@ -117,9 +117,9 @@ class TestCleanup:
         with tempfile.TemporaryDirectory() as tmpdir:
             store_path = Path(tmpdir) / "store.json"
             store_path.write_text("")
-            
+
             before, after = cleanup_stale_jobs(store_path, days=7)
-            
+
             assert before == 0
             assert after == 0
 
@@ -127,10 +127,10 @@ class TestCleanup:
         """Verify that recently created jobs are always preserved."""
         with tempfile.TemporaryDirectory() as tmpdir:
             store_path = Path(tmpdir) / "store.json"
-            
+
             # Create store with jobs at current time
             now = datetime.now().isoformat()
-            
+
             store = {
                 "roles": {
                     f"company{i}|source:{i}": {
@@ -147,13 +147,13 @@ class TestCleanup:
                     for i in range(5)
                 }
             }
-            
+
             with open(store_path, "w") as f:
                 json.dump(store, f)
-            
+
             # Run cleanup
             before, after = cleanup_stale_jobs(store_path, days=7)
-            
+
             assert before == 5
             assert after == 5  # All jobs should be preserved
 

@@ -2,20 +2,13 @@ from typing import Dict, Any, List
 from urllib.parse import urlparse
 import re
 
-import requests
 from bs4 import BeautifulSoup
 
 from ..normalize import normalize_company, normalize_title, normalize_location, canonical_url
 from ..logger import get_logger
-from ..retry import exponential_backoff
+from .common import fetch_with_error_handling, deduplicate_urls
 
 logger = get_logger()
-
-
-@exponential_backoff(max_retries=3, base_delay=1.0, exceptions=(requests.exceptions.Timeout, requests.exceptions.ConnectionError))
-def _fetch_with_retry(url: str):
-    """Fetch URL with automatic retry on transient errors."""
-    return requests.get(url, timeout=15)
 
 
 def parse(url: str) -> Dict[str, Any]:
@@ -37,27 +30,7 @@ def parse(url: str) -> Dict[str, Any]:
     except requests.exceptions.HTTPError as e:
         status = e.response.status_code if e.response is not None else "HTTPError"
         logger.record_scrape_failure("lever", f"HTTPError_{status}")
-        if status == 404:
-            logger.warning("Lever URL not found", url=u, status=404)
-            raise ValueError(f"Lever URL not found (404): {u}")
-        logger.error("Lever request failed", url=u, status=status)
-        raise ValueError(f"Lever request failed ({status}): {u}")
-    except requests.exceptions.Timeout:
-        logger.record_scrape_failure("lever", "Timeout")
-        logger.warning("Lever request timed out", url=u)
-        raise ValueError("Lever request timed out. Try again later.")
-    except requests.exceptions.RequestException as e:
-        logger.record_scrape_failure("lever", "RequestException")
-        logger.error("Lever request error", url=u, error=str(e))
-        raise ValueError(f"Lever request error: {e}")
-
-    soup = BeautifulSoup(resp.text, "html.parser")
-
-    # Title heuristics
-    title = None
-    h2 = soup.find("h2")
-    if h2 and h2.get_text(strip=True):
-        title = h2.get_text(strip=True)
+    resp = fetch_with_error_handling(u, "lever")        title = h2.get_text(strip=True)
     if not title:
         h1 = soup.find("h1")
         if h1 and h1.get_text(strip=True):
@@ -115,14 +88,18 @@ def list_company_posting_urls(company_slug: str) -> List[str]:
         # Link patterns can be absolute or relative; target company slug
         if company_slug in href and (href.endswith("/apply") is False):
             if href.startswith("http"):
+
+    resp = fetch_with_error_handling(board_url, "lever")
+    soup = BeautifulSoup(resp.text, "html.parser")
+
+    links = []
+    for a in soup.find_all("a", href=True):
+        href = a["href"]
+        # Link patterns can be absolute or relative; target company slug
+        if company_slug in href and (href.endswith("/apply") is False):
+            if href.startswith("http"):
                 links.append(canonical_url(href))
             else:
                 links.append(canonical_url(f"https://jobs.lever.co{href}"))
-    # dedupe while preserving order
-    seen = set()
-    result = []
-    for u in links:
-        if u not in seen:
-            seen.add(u)
-            result.append(u)
-    return result
+
+    return deduplicate_urls(links)

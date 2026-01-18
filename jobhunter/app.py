@@ -21,6 +21,75 @@ from .search import build_query, build_query_urls
 from .google_results import fetch_google_links, filter_ats_links
 
 logger = get_logger()
+
+
+def get_scraper_for_url(url: str):
+    """
+    Get the appropriate scraper module for a job posting URL.
+
+    Args:
+        url: Job posting URL
+
+    Returns:
+        Scraper module with parse() function
+
+    Raises:
+        ValueError: If URL host is not a supported ATS platform
+    """
+    host = urlparse(url).netloc
+
+    if "greenhouse.io" in host:
+        from .scrapers import greenhouse
+        return greenhouse
+    elif "lever.co" in host:
+        from .scrapers import lever
+        return lever
+    elif "jobs.ashbyhq.com" in host:
+        from .scrapers import ashby
+        return ashby
+    elif "apply.workable.com" in host or host.endswith("workable.com"):
+        from .scrapers import workable
+        return workable
+    else:
+        raise ValueError(f"Unsupported ATS platform: {host}")
+
+
+def get_scraper_by_platform(platform: str):
+    """
+    Get scraper module by platform name.
+
+    Args:
+        platform: Platform name (greenhouse, lever, ashby, workable)
+
+    Returns:
+        Scraper module
+
+    Raises:
+        ValueError: If platform is not supported
+    """
+    if platform == "greenhouse":
+        from .scrapers import greenhouse
+        return greenhouse
+    elif platform == "lever":
+        from .scrapers import lever
+        return lever
+    elif platform == "ashby":
+        from .scrapers import ashby
+        return ashby
+    elif platform == "workable":
+        from .scrapers import workable
+        return workable
+    else:
+        raise ValueError(f"Unsupported platform: {platform}")
+
+
+def parse_roles(roles_str: str) -> list:
+    """Parse comma-separated roles string into list."""
+    if not roles_str:
+        return []
+    return [r.strip() for r in roles_str.split(",") if r.strip()]
+
+
 def ingest_posting(posting: dict, store_path: Path) -> dict:
     errors = validate_posting(posting)
     if errors:
@@ -80,7 +149,7 @@ def cmd_validate(args: argparse.Namespace) -> None:
 
 
 def cmd_query(args: argparse.Namespace) -> None:
-    roles = [r.strip() for r in args.roles.split(",") if r.strip()] if args.roles else []
+    roles = parse_roles(args.roles)
     queries = build_query(
         roles=roles,
         remote_only=args.remote,
@@ -95,9 +164,7 @@ def cmd_query(args: argparse.Namespace) -> None:
 
 
 def cmd_query_scrape(args: argparse.Namespace) -> None:
-    roles = [r.strip() for r in args.roles.split(",") if r.strip()] if args.roles else []
-    # Build base query without site: prefixes
-    roles = [r.strip() for r in args.roles.split(",") if r.strip()]
+    roles = parse_roles(args.roles)
     if not roles:
         raise SystemExit("No roles specified. Use --roles \"role1,role2\"")
 
@@ -135,22 +202,8 @@ def cmd_query_scrape(args: argparse.Namespace) -> None:
     new = upd = same = skip = 0
     for url in all_links:
         try:
-            host = urlparse(url).netloc
-            if "greenhouse.io" in host:
-                from .scrapers import greenhouse as gh_scraper
-                posting = gh_scraper.parse(url)
-            elif "lever.co" in host:
-                from .scrapers import lever as lever_scraper
-                posting = lever_scraper.parse(url)
-            elif "jobs.ashbyhq.com" in host:
-                from .scrapers import ashby as ashby_scraper
-                posting = ashby_scraper.parse(url)
-            elif "apply.workable.com" in host or host.endswith("workable.com"):
-                from .scrapers import workable as workable_scraper
-                posting = workable_scraper.parse(url)
-            else:
-                skip += 1
-                continue
+            scraper = get_scraper_for_url(url)
+            posting = scraper.parse(url)
             outcome = ingest_posting(posting, store_path)
             s = outcome["status"]
             if s == "validation_error":
@@ -168,7 +221,7 @@ def cmd_query_scrape(args: argparse.Namespace) -> None:
             print(f"[error] {url} -> {e}")
             skip += 1
     print(f"Done. new={new} updated={upd} no-change={same} skipped={skip}")
-    
+
     # Run cleanup to remove stale jobs (older than 7 days)
     print("\n--- Cleaning up stale jobs (>7 days old) ---")
     before, after = cleanup_stale_jobs(store_path, days=7)
@@ -177,7 +230,7 @@ def cmd_query_scrape(args: argparse.Namespace) -> None:
         print(f"Removed {removed} stale job(s). Jobs remaining: {after}")
     else:
         print(f"No stale jobs to remove. Jobs in store: {after}")
-    
+
     print("\n--- Metrics Summary ---")
     logger.log_metrics_summary()
 
@@ -188,33 +241,13 @@ def cmd_scrape(args: argparse.Namespace) -> None:
     # Guard against placeholder URLs used in examples
     if "<" in url or ">" in url:
         raise SystemExit("Provide a real job URL (no <company>/<id> placeholders). Use the 'query' command to generate search links.")
-    host = urlparse(url).netloc
-    if "greenhouse.io" in host:
-        try:
-            from .scrapers import greenhouse as gh_scraper
-            posting = gh_scraper.parse(url)
-        except ValueError as e:
-            raise SystemExit(str(e))
-    elif "lever.co" in host:
-        try:
-            from .scrapers import lever as lever_scraper
-            posting = lever_scraper.parse(url)
-        except ValueError as e:
-            raise SystemExit(str(e))
-    elif "jobs.ashbyhq.com" in host:
-        try:
-            from .scrapers import ashby as ashby_scraper
-            posting = ashby_scraper.parse(url)
-        except ValueError as e:
-            raise SystemExit(str(e))
-    elif "apply.workable.com" in host or host.endswith("workable.com"):
-        try:
-            from .scrapers import workable as workable_scraper
-            posting = workable_scraper.parse(url)
-        except ValueError as e:
-            raise SystemExit(str(e))
-    else:
-        raise SystemExit("Unsupported URL host. Use greenhouse.io, jobs.lever.co, jobs.ashbyhq.com, or apply.workable.com")
+
+    try:
+        scraper = get_scraper_for_url(url)
+        posting = scraper.parse(url)
+    except ValueError as e:
+        raise SystemExit(str(e))
+
     outcome = ingest_posting(posting, store_path)
     print(f"Role: {outcome['role_id']}")
     print(f"Status: {outcome['status']}")
@@ -237,17 +270,8 @@ def cmd_scrape_file(args: argparse.Namespace) -> None:
                 continue
             count += 1
             try:
-                host = urlparse(url).netloc
-                if "greenhouse.io" in host:
-                    from .scrapers import greenhouse as gh_scraper
-                    posting = gh_scraper.parse(url)
-                elif "lever.co" in host:
-                    from .scrapers import lever as lever_scraper
-                    posting = lever_scraper.parse(url)
-                else:
-                    print(f"Skip unsupported host: {url}")
-                    skipped += 1
-                    continue
+                scraper = get_scraper_for_url(url)
+                posting = scraper.parse(url)
                 outcome = ingest_posting(posting, store_path)
                 status = outcome["status"]
                 if status == "new":
@@ -268,21 +292,10 @@ def cmd_scrape_board(args: argparse.Namespace) -> None:
     company = args.company
     store_path = Path(args.store)
     limit = args.limit
+
     try:
-        if platform == "greenhouse":
-            from .scrapers import greenhouse as gh_scraper
-            urls = gh_scraper.list_company_posting_urls(company)
-        elif platform == "lever":
-            from .scrapers import lever as lever_scraper
-            urls = lever_scraper.list_company_posting_urls(company)
-        elif platform == "ashby":
-            from .scrapers import ashby as ashby_scraper
-            urls = ashby_scraper.list_company_posting_urls(company)
-        elif platform == "workable":
-            from .scrapers import workable as workable_scraper
-            urls = workable_scraper.list_company_posting_urls(company)
-        else:
-            raise SystemExit("Unsupported platform. Use 'greenhouse' or 'lever'.")
+        scraper = get_scraper_by_platform(platform)
+        urls = scraper.list_company_posting_urls(company)
     except ValueError as e:
         raise SystemExit(str(e))
 
@@ -294,18 +307,7 @@ def cmd_scrape_board(args: argparse.Namespace) -> None:
     print(f"Found {len(urls)} postings. Scraping...")
     for url in urls:
         try:
-            if platform == "greenhouse":
-                from .scrapers import greenhouse as gh_scraper
-                posting = gh_scraper.parse(url)
-            elif platform == "lever":
-                from .scrapers import lever as lever_scraper
-                posting = lever_scraper.parse(url)
-            elif platform == "ashby":
-                from .scrapers import ashby as ashby_scraper
-                posting = ashby_scraper.parse(url)
-            else:
-                from .scrapers import workable as workable_scraper
-                posting = workable_scraper.parse(url)
+            posting = scraper.parse(url)
             outcome = ingest_posting(posting, store_path)
             print(f"[{outcome['status']}] {outcome['role_id']}")
         except Exception as e:

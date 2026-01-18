@@ -1,6 +1,6 @@
 # Job Hunter: Implementation Tracker
 
-**Last Updated**: January 6, 2026
+**Last Updated**: January 18, 2026
 
 ---
 
@@ -417,9 +417,57 @@ Integration Test Results:
 
 ---
 
+## Phase 3: Code Quality & Refactoring ✅ (January 18, 2026)
+
+**Goal**: Simplify codebase to make it more approachable and maintainable before adding more features.
+
+### Round 1: Extracted Helper Functions in `app.py`
+**Problem**: Command functions had duplicated scraper selection logic (~60 lines across 5 functions)
+
+**Solution**:
+- Added `get_scraper_for_url(url)`: Single source of truth for URL→scraper mapping
+- Added `get_scraper_by_platform(platform)`: Platform name→scraper mapping  
+- Added `parse_roles(roles_str)`: Comma-separated role parsing
+
+**Impact**: Eliminated duplication in `cmd_query_scrape`, `cmd_scrape`, `cmd_scrape_file`, `cmd_scrape_board`, and `cmd_query`
+
+### Round 2: Shared Utilities for Scrapers
+**Problem**: All 4 scrapers (Greenhouse, Lever, Ashby, Workable) had ~40 lines of identical HTTP error handling code per scraper, appearing twice in each (in `parse()` and `list_company_posting_urls()`). Total duplication: ~320 lines.
+
+**Solution**: Created `jobhunter/scrapers/common.py` with shared utilities:
+- `fetch_with_error_handling(url, platform)`: Standardized HTTP request with logging, retry, and error handling
+- `deduplicate_urls(urls)`: Order-preserving URL deduplication
+- Centralized `_fetch_with_retry()` with exponential backoff
+
+**Changes**:
+- Refactored all 4 scrapers to use shared utilities
+- Fixed missing `jobhunter/scrapers/__init__.py` (scrapers weren't importable as package)
+- Updated test execution to use `PYTHONPATH=.` for imports
+
+**Results**:
+```
+Before → After (line counts):
+- greenhouse.py: 128 → 98 lines (-30)
+- lever.py:      129 → 104 lines (-25)
+- ashby.py:      121 → 79 lines (-42)
+- workable.py:   125 → 78 lines (-47)
+- common.py:     NEW → 60 lines (shared code)
+
+Net reduction: ~144 lines eliminated
+Test status: All 41 tests passing
+```
+
+**Benefits**:
+- **Single source of truth**: Change error handling once, affects all scrapers
+- **Easier maintenance**: Adding new scrapers is simpler with utilities
+- **Better readability**: Scrapers now focus on parsing logic, not error handling
+- **No functionality lost**: All tests pass, same behavior guaranteed
+
+---
+
 ## Roadmap: What's Next
 
-### Phase 3: Database Migration (SQL with Prisma)
+### Phase 4: Database Migration (SQL with Prisma)
 
 **Next Steps**:
 1. Set up Prisma schema with SQLite (or PostgreSQL)
@@ -427,7 +475,7 @@ Integration Test Results:
 3. Update storage.py to use Prisma instead of JSON
 4. Same cleanup logic but with SQL queries
 
-### Phase 4: Web UI
+### Phase 5: Web UI
 
 **Next Steps**:
 1. Build FastAPI backend for REST endpoints

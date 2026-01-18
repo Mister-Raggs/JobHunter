@@ -51,7 +51,7 @@ def cleanup_stale_jobs(store_path: Path, days: int = 7) -> Tuple[int, int]:
 
     roles = store["roles"]
     total_before = len(roles)
-    
+
     # Get the cutoff date
     cutoff_date = datetime.now() - timedelta(days=days)
     logger.debug(

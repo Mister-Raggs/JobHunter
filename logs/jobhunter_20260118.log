@@ -1,0 +1,9 @@
+2026-01-18 09:39:38 | INFO     | jobhunter:105 | Cleanup completed | Context: {"extra": {"jobs_initialized": 0, "jobs_removed": 1, "jobs_before": 2, "jobs_after": 1}}
+2026-01-18 09:39:38 | INFO     | jobhunter:105 | Cleanup completed | Context: {"extra": {"jobs_initialized": 1, "jobs_removed": 0, "jobs_before": 1, "jobs_after": 1}}
+2026-01-18 09:39:38 | INFO     | jobhunter:105 | Cleanup completed | Context: {"extra": {"jobs_initialized": 0, "jobs_removed": 0, "jobs_before": 5, "jobs_after": 5}}
+2026-01-18 09:42:35 | INFO     | jobhunter:105 | Cleanup completed | Context: {"extra": {"jobs_initialized": 0, "jobs_removed": 1, "jobs_before": 2, "jobs_after": 1}}
+2026-01-18 09:42:35 | INFO     | jobhunter:105 | Cleanup completed | Context: {"extra": {"jobs_initialized": 1, "jobs_removed": 0, "jobs_before": 1, "jobs_after": 1}}
+2026-01-18 09:42:35 | INFO     | jobhunter:105 | Cleanup completed | Context: {"extra": {"jobs_initialized": 0, "jobs_removed": 0, "jobs_before": 5, "jobs_after": 5}}
+2026-01-18 11:46:48 | INFO     | jobhunter:105 | Cleanup completed | Context: {"extra": {"jobs_initialized": 0, "jobs_removed": 1, "jobs_before": 2, "jobs_after": 1}}
+2026-01-18 11:46:48 | INFO     | jobhunter:105 | Cleanup completed | Context: {"extra": {"jobs_initialized": 1, "jobs_removed": 0, "jobs_before": 1, "jobs_after": 1}}
+2026-01-18 11:46:48 | INFO     | jobhunter:105 | Cleanup completed | Context: {"extra": {"jobs_initialized": 0, "jobs_removed": 0, "jobs_before": 5, "jobs_after": 5}}
