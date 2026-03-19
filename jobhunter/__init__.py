@@ -1,1 +1,3 @@
-__version__ = "0.0.1"
+"""JobHunter - Track new job postings from target companies."""
+
+__version__ = "1.0.0"

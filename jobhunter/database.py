@@ -1,56 +1,97 @@
-"""
-Database schema and connection management.
+"""SQLite database for tracking job postings."""
 
-Uses SQLite with SQLAlchemy for job storage.
-"""
-
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
-from sqlalchemy import create_engine, Column, String, DateTime
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+
+from sqlalchemy import (
+    Boolean,
+    Column,
+    DateTime,
+    Integer,
+    String,
+    UniqueConstraint,
+    create_engine,
+)
+from sqlalchemy.orm import declarative_base, sessionmaker
 
 Base = declarative_base()
 
+DB_PATH = Path(__file__).parent.parent / "data" / "jobs.db"
+
 
 class Job(Base):
-    """Job posting model."""
-
     __tablename__ = "jobs"
 
-    role_id = Column(String, primary_key=True)  # company|source:source_id
-    company = Column(String, nullable=False)
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    company = Column(String, nullable=False, index=True)
+    external_id = Column(String, nullable=False)
     title = Column(String, nullable=False)
-    location = Column(String, nullable=False)
+    location = Column(String, default="")
     url = Column(String, nullable=False)
-    source = Column(String, nullable=False)  # greenhouse, lever, ashby, workable
-    source_id = Column(String, nullable=False)
-    created_at = Column(DateTime, nullable=False, default=datetime.now)
-    updated_at = Column(DateTime, nullable=False, default=datetime.now, onupdate=datetime.now)
+    posted_at = Column(String, default="")
+    discovered_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+    notified = Column(Boolean, default=False)
+
+    __table_args__ = (
+        UniqueConstraint("company", "external_id", name="uq_company_job"),
+    )
 
 
-def init_database(db_path: Path) -> None:
-    """
-    Initialize database and create tables.
-
-    Args:
-        db_path: Path to SQLite database file
-    """
-    db_path.parent.mkdir(parents=True, exist_ok=True)
-    engine = create_engine(f"sqlite:///{db_path}")
+def _get_session(db_path: Path | None = None):
+    path = db_path or DB_PATH
+    path.parent.mkdir(parents=True, exist_ok=True)
+    engine = create_engine(f"sqlite:///{path}")
     Base.metadata.create_all(engine)
+    return sessionmaker(bind=engine)()
 
 
-def get_session(db_path: Path):
-    """
-    Get database session.
+def add_jobs(jobs: list[dict], company: str, db_path: Path | None = None) -> list[dict]:
+    """Insert new jobs into the database. Returns only the newly added ones."""
+    session = _get_session(db_path)
+    new_jobs = []
+    try:
+        for job in jobs:
+            exists = (
+                session.query(Job)
+                .filter_by(company=company, external_id=str(job["external_id"]))
+                .first()
+            )
+            if not exists:
+                session.add(
+                    Job(
+                        company=company,
+                        external_id=str(job["external_id"]),
+                        title=job["title"],
+                        location=job.get("location", ""),
+                        url=job["url"],
+                        posted_at=job.get("posted_at", ""),
+                    )
+                )
+                new_jobs.append(job)
+        session.commit()
+    finally:
+        session.close()
+    return new_jobs
 
-    Args:
-        db_path: Path to SQLite database file
 
-    Returns:
-        SQLAlchemy session
-    """
-    engine = create_engine(f"sqlite:///{db_path}")
-    Session = sessionmaker(bind=engine)
-    return Session()
+def get_all_jobs(company: str | None = None, db_path: Path | None = None) -> list[Job]:
+    """Fetch tracked jobs, optionally filtered by company key."""
+    session = _get_session(db_path)
+    try:
+        q = session.query(Job)
+        if company:
+            q = q.filter_by(company=company)
+        return q.order_by(Job.discovered_at.desc()).all()
+    finally:
+        session.close()
+
+
+def job_count(company: str | None = None, db_path: Path | None = None) -> int:
+    session = _get_session(db_path)
+    try:
+        q = session.query(Job)
+        if company:
+            q = q.filter_by(company=company)
+        return q.count()
+    finally:
+        session.close()

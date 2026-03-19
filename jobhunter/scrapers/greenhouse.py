@@ -1,99 +1,36 @@
-from typing import Dict, Any, List
-from urllib.parse import urlparse
-import re
+"""Greenhouse boards API scraper.
 
-from bs4 import BeautifulSoup
+Uses the public JSON API at boards-api.greenhouse.io — no API key needed.
+Works for any company that hosts their job board on Greenhouse
+(DoorDash, Cloudflare, Discord, etc.).
+"""
 
-from ..normalize import normalize_company, normalize_title, normalize_location, canonical_url
-from ..logger import get_logger
-from .common import fetch_with_error_handling, deduplicate_urls
+import requests
 
-logger = get_logger()
-
-
-def parse(url: str) -> Dict[str, Any]:
-    """Parse a Greenhouse posting page and return a posting dict.
-
-    Raises ValueError with a user-friendly message on HTTP errors.
-    """
-    logger.debug("Parsing Greenhouse URL", url=url)
-    u = canonical_url(url)
-    p = urlparse(u)
-    path_parts = [x for x in p.path.split("/") if x]
-    company_slug = path_parts[0] if len(path_parts) > 0 else ""
-    source_id = path_parts[2] if len(path_parts) > 2 and path_parts[1] == "jobs" else None
-
-    resp = fetch_with_error_handling(u, "greenhouse")
-    soup = BeautifulSoup(resp.text, "html.parser")
-
-    # Title heuristics
-    title = None
-    h1 = soup.find("h1")
-    if h1 and h1.get_text(strip=True):
-        title = h1.get_text(strip=True)
-    if not title:
-        t = soup.find("title")
-        if t and t.get_text(strip=True):
-            title = t.get_text(strip=True)
-    # Often includes company name suffix; trim after ' - ' if present
-    if title and " - " in title:
-        title = title.split(" - ")[0].strip()
-
-    # Location heuristics
-    loc = None
-    loc_el = soup.find(class_=re.compile("location|opening-location"))
-    if loc_el and loc_el.get_text(strip=True):
-        loc = loc_el.get_text(strip=True)
-
-    result = {
-        "source": "greenhouse",
-        "source_id": source_id,
-        "company": normalize_company(company_slug),
-        "title": normalize_title(title or ""),
-        "location": normalize_location(loc or ""),
-        "url": u,
-    }
-
-    logger.record_scrape_success("greenhouse")
-    logger.debug("Successfully parsed Greenhouse job", company=company_slug, title=title)
-    return result
+API_BASE = "https://boards-api.greenhouse.io/v1/boards"
 
 
-def list_company_posting_urls(company_slug: str) -> List[str]:
-    """List posting URLs from the company's Greenhouse board page."""
-    board_url = f"https://boards.greenhouse.io/{company_slug}"
-    logger.debug("Fetching Greenhouse board", company=company_slug, url=board_url)
-
-    try:
-        resp = _fetch_with_retry(board_url)
+class GreenhouseScraper:
+    def fetch_jobs(self, slug: str) -> list[dict]:
+        """Fetch all open jobs for a Greenhouse board slug."""
+        url = f"{API_BASE}/{slug}/jobs"
+        resp = requests.get(url, timeout=30)
         resp.raise_for_status()
-    except requests.exceptions.HTTPError as e:
-        status = e.response.status_code if e.response is not None else "HTTPError"
-        if status == 404:
-            logger.warning("Greenhouse board not found", company=company_slug, status=404)
-            raise ValueError(f"Greenhouse board not found (404): {board_url}")
-        logger.error("Greenhouse board request failed", company=company_slug, status=status)
-        raise ValueError(f"Greenhouse board request failed ({status}): {board_url}")
-    except requests.exceptions.Timeout:
-        logger.warning("Greenhouse board request timed out", company=company_slug)
-        raise ValueError("Greenhouse board request timed out. Try again later.")
-    except requests.exceptions.RequestException as e:
-        logger.error("Greenhouse board request error", company=company_slug, error=str(e))
-        raise ValueError(f"Greenhouse board request error: {e}")
+        data = resp.json()
 
-    soup = BeautifulSoup(resp.text, "html.parser")
-    links = []
-    for a in soup.find_all("a", href=True):
-    resp = fetch_with_error_handling(board_url, "greenhouse")
-    soup = BeautifulSoup(resp.text, "html.parser")
+        jobs = []
+        for item in data.get("jobs", []):
+            location = ""
+            if item.get("location"):
+                location = item["location"].get("name", "")
 
-    links = []
-    for a in soup.find_all("a", href=True):
-        href = a["href"]
-        if "/jobs/" in href and company_slug in href:
-            if href.startswith("http"):
-                links.append(canonical_url(href))
-            else:
-                links.append(canonical_url(f"https://boards.greenhouse.io{href}"))
-
-    return deduplicate_urls(links)
+            jobs.append(
+                {
+                    "external_id": str(item["id"]),
+                    "title": item["title"],
+                    "location": location,
+                    "url": item["absolute_url"],
+                    "posted_at": item.get("updated_at", ""),
+                }
+            )
+        return jobs
