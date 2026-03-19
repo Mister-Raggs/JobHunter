@@ -21,4 +21,14 @@ COMPANIES: dict[str, CompanyConfig] = {
         scraper="apple",
         slug="apple",
     ),
+    "uber": CompanyConfig(
+        name="Uber",
+        scraper="uber",
+        slug="uber",
+    ),
+    "baseten": CompanyConfig(
+        name="Baseten",
+        scraper="ashby",
+        slug="baseten",
+    ),
 }
