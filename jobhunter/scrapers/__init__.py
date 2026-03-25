@@ -4,6 +4,7 @@ from .apple import AppleScraper
 from .ashby import AshbyScraper
 from .eightfold import EightfoldScraper
 from .greenhouse import GreenhouseScraper
+from .phenom import PhenomScraper
 from .uber import UberScraper
 
 SCRAPERS: dict[str, type] = {
@@ -11,6 +12,7 @@ SCRAPERS: dict[str, type] = {
     "apple": AppleScraper,
     "ashby": AshbyScraper,
     "eightfold": EightfoldScraper,
+    "phenom": PhenomScraper,
     "uber": UberScraper,
 }
 

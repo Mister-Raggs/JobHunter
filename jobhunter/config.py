@@ -36,4 +36,19 @@ COMPANIES: dict[str, CompanyConfig] = {
         scraper="eightfold",
         slug="netflix",
     ),
+    "nuro": CompanyConfig(
+        name="Nuro",
+        scraper="greenhouse",
+        slug="nuro",
+    ),
+    "otterai": CompanyConfig(
+        name="Otter.ai",
+        scraper="greenhouse",
+        slug="otterai",
+    ),
+    "cvshealth": CompanyConfig(
+        name="CVS Health",
+        scraper="phenom",
+        slug="cvshealth",
+    ),
 }

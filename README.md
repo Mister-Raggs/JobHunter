@@ -2,7 +2,7 @@
 
 Track new job postings from specific companies. Pulls listings directly from company job boards, stores them in SQLite, and notifies you about new openings.
 
-Currently tracking: **DoorDash** (Greenhouse), **Apple** (careers page), **Uber** (careers API), **Baseten** (Ashby), and **Netflix** (Eightfold).
+Currently tracking: **DoorDash**, **Nuro**, **Otter.ai** (Greenhouse), **Apple** (careers page), **Uber** (careers API), **Baseten** (Ashby), **Netflix** (Eightfold), and **CVS Health** (Phenom).
 
 ## Setup
 
@@ -87,6 +87,7 @@ jobhunter/
     apple.py          Apple careers page scraper
     ashby.py          Ashby posting API (Baseten, etc.)
     eightfold.py      Eightfold careers API (Netflix, etc.)
+    phenom.py         Phenom People careers (CVS Health, etc.)
     uber.py           Uber careers API
 ```
 
@@ -98,4 +99,5 @@ jobhunter/
 | `apple` | HTML hydration data | Apple |
 | `ashby` | Public posting API | Any company on Ashby (Baseten, etc.) |
 | `eightfold` | Public search API | Companies on Eightfold with open API (Netflix, etc.) |
+| `phenom` | HTML-embedded JSON (DDO) | Companies on Phenom People (CVS Health, etc.) |
 | `uber` | Internal careers API | Uber |
