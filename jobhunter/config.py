@@ -31,4 +31,9 @@ COMPANIES: dict[str, CompanyConfig] = {
         scraper="ashby",
         slug="baseten",
     ),
+    "netflix": CompanyConfig(
+        name="Netflix",
+        scraper="eightfold",
+        slug="netflix",
+    ),
 }
