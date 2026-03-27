@@ -2,7 +2,7 @@
 
 Track new job postings from specific companies. Pulls listings directly from company job boards, stores them in SQLite, and notifies you about new openings.
 
-Currently tracking: **DoorDash**, **Nuro**, **Otter.ai** (Greenhouse), **Apple** (careers page), **Uber** (careers API), **Baseten** (Ashby), **Netflix** (Eightfold), and **CVS Health** (Phenom).
+Currently tracking: **DoorDash**, **Nuro**, **Otter.ai**, **CoreWeave**, **Glean** (Greenhouse), **Apple** (careers page), **Uber** (careers API), **Baseten**, **Braintrust** (Ashby), **Netflix** (Eightfold), and **CVS Health** (Phenom).
 
 ## Setup
 
