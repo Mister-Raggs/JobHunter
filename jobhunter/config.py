@@ -66,4 +66,9 @@ COMPANIES: dict[str, CompanyConfig] = {
         scraper="greenhouse",
         slug="gleanwork",
     ),
+    "salesforce": CompanyConfig(
+        name="Salesforce",
+        scraper="salesforce",
+        slug="salesforce",
+    ),
 }
