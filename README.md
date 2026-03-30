@@ -2,7 +2,7 @@
 
 Track new job postings from specific companies. Pulls listings directly from company job boards, stores them in SQLite, and notifies you about new openings.
 
-Currently tracking: **DoorDash**, **Nuro**, **Otter.ai**, **CoreWeave**, **Glean** (Greenhouse), **Apple** (careers page), **Uber** (careers API), **Baseten**, **Braintrust** (Ashby), **Netflix** (Eightfold), **CVS Health** (Phenom), and **Salesforce** (XML feed).
+Currently tracking: **DoorDash**, **Nuro**, **Otter.ai**, **CoreWeave**, **Glean** (Greenhouse), **Apple** (careers page), **Uber** (careers API), **Baseten**, **Braintrust** (Ashby), **Netflix** (Eightfold), **CVS Health** (Phenom), **Salesforce** (XML feed), and **Qualcomm** (Playwright + Eightfold API).
 
 ## Setup
 
@@ -102,3 +102,13 @@ jobhunter/
 | `phenom` | HTML-embedded JSON (DDO) | Companies on Phenom People (CVS Health, etc.) |
 | `salesforce` | Public XML feed | Salesforce |
 | `uber` | Internal careers API | Uber |
+
+## Disclaimer
+
+This project is for personal and educational use only. It accesses publicly available job listing data from company careers pages — the same information visible to any browser visitor.
+
+This tool is not affiliated with, endorsed by, or sponsored by any of the companies listed. All company names and trademarks are the property of their respective owners.
+
+Users are solely responsible for ensuring their use of this tool complies with the terms of service of any website they access, as well as applicable local laws and regulations. The author assumes no liability for any misuse or any consequences arising from use of this software.
+
+This software is provided "as is", without warranty of any kind.
