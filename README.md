@@ -65,13 +65,62 @@ SMTP_PASS=your-app-password
 
 For Gmail, generate an [app password](https://myaccount.google.com/apppasswords) instead of using your account password.
 
-## Automation
+## Automation (VPS Deployment)
 
-Run on a schedule with cron to get notified about new postings:
+For reliable 24/7 scheduling, deploy to a VPS (Hetzner, DigitalOcean, etc. — ~$4/mo).
+
+### First-time VPS setup
 
 ```bash
-# Check every hour and email new jobs
-0 * * * * cd /path/to/JobHunter && .venv/bin/python -m jobhunter check -e you@gmail.com
+# On the VPS
+git clone https://github.com/your-username/JobHunter.git
+cd JobHunter
+python -m venv .venv
+.venv/bin/pip install -e .
+.venv/bin/playwright install chromium
+.venv/bin/playwright install-deps chromium  # Ubuntu system deps
+
+# Copy credentials from local machine (run this locally)
+scp .env user@your-vps-ip:~/JobHunter/.env
+
+# Install the cron job (on VPS)
+bash scripts/setup_cron.sh
+```
+
+The cron job runs `jobhunter check --auto` every 30 minutes between 6am–8pm. It emails new jobs automatically and marks them so you only get notified once.
+
+### Credentials (.env)
+
+```
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=you@gmail.com
+SMTP_PASS=your-app-password   # Gmail: generate at myaccount.google.com/apppasswords
+TO_EMAIL=you@gmail.com        # Where to send job alerts
+```
+
+The `.env` file lives only on the VPS — never commit it.
+
+### Deploying updates
+
+After adding a new company or making changes locally:
+
+```bash
+git push origin main
+bash scripts/deploy.sh user@your-vps-ip
+```
+
+### Validating before deploying
+
+```bash
+# Test the new company locally first
+jobhunter check -c <new_company_key>
+
+# Run twice — second run should show 0 new jobs (dedup check)
+jobhunter check -c <new_company_key>
+
+# Test email manually
+jobhunter check -c <new_company_key> -e you@email.com
 ```
 
 ## Project Structure
