@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 
 from . import __version__
 from .config import COMPANIES
-from .database import add_jobs, get_all_jobs, job_count
+from .database import add_jobs, get_all_jobs, get_unnotified_jobs, job_count, mark_notified
 from .notifier import send_email
 from .scrapers import get_scraper
 
@@ -14,38 +14,56 @@ from .scrapers import get_scraper
 def cmd_check(args: argparse.Namespace) -> None:
     """Check configured companies for new job postings."""
     keys = [k.strip() for k in args.companies.split(",")] if args.companies else list(COMPANIES)
+    auto = getattr(args, "auto", False)
 
     all_new: list[dict] = []
 
     for key in keys:
         config = COMPANIES.get(key)
         if not config:
-            print(f"Unknown company: {key}")
+            if not auto:
+                print(f"Unknown company: {key}")
             continue
 
-        print(f"\nChecking {config.name}...")
+        if not auto:
+            print(f"\nChecking {config.name}...")
         scraper = get_scraper(config.scraper)
 
         try:
             jobs = scraper.fetch_jobs(config.slug)
-            print(f"  {len(jobs)} open listings")
+            if not auto:
+                print(f"  {len(jobs)} open listings")
 
             new_jobs = add_jobs(jobs, key)
             if new_jobs:
-                print(f"  {len(new_jobs)} NEW:")
-                for job in new_jobs:
-                    print(f"    {job['title']}")
-                    print(f"    {job.get('location', '')}  {job['url']}")
+                if not auto:
+                    print(f"  {len(new_jobs)} NEW:")
+                    for job in new_jobs:
+                        print(f"    {job['title']}")
+                        print(f"    {job.get('location', '')}  {job['url']}")
                 all_new.extend([{**j, "company": config.name} for j in new_jobs])
-            else:
+            elif not auto:
                 print("  No new jobs")
         except Exception as e:
-            print(f"  Error: {e}")
+            if not auto:
+                print(f"  Error: {e}")
 
-    # Summary
-    print(f"\n--- {len(all_new)} new job(s) found ---")
+    if not auto:
+        print(f"\n--- {len(all_new)} new job(s) found ---")
 
-    if all_new and args.email:
+    if auto:
+        # In auto mode: email any unnotified jobs (covers jobs found in previous
+        # runs that failed to send), then mark them notified.
+        unnotified = get_unnotified_jobs()
+        if unnotified:
+            jobs_to_send = [
+                {"company": COMPANIES[j.company].name if j.company in COMPANIES else j.company,
+                 "title": j.title, "location": j.location, "url": j.url}
+                for j in unnotified
+            ]
+            if send_email(jobs_to_send):
+                mark_notified([j.id for j in unnotified])
+    elif all_new and args.email:
         print(f"Sending email to {args.email}...")
         if send_email(all_new, args.email):
             print("Email sent!")
@@ -104,6 +122,7 @@ def main():
     p_check = sub.add_parser("check", help="Check for new job postings")
     p_check.add_argument("-c", "--companies", help="Comma-separated company keys (default: all)")
     p_check.add_argument("-e", "--email", help="Email address for notifications")
+    p_check.add_argument("--auto", action="store_true", help="Silent mode: email new jobs automatically (for cron)")
     p_check.set_defaults(func=cmd_check)
 
     # list

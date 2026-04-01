@@ -95,3 +95,26 @@ def job_count(company: str | None = None, db_path: Path | None = None) -> int:
         return q.count()
     finally:
         session.close()
+
+
+def get_unnotified_jobs(db_path: Path | None = None) -> list[Job]:
+    """Return all jobs that have not yet been emailed."""
+    session = _get_session(db_path)
+    try:
+        return session.query(Job).filter_by(notified=False).order_by(Job.discovered_at.desc()).all()
+    finally:
+        session.close()
+
+
+def mark_notified(job_ids: list[int], db_path: Path | None = None) -> None:
+    """Mark jobs as notified by their primary key IDs."""
+    if not job_ids:
+        return
+    session = _get_session(db_path)
+    try:
+        session.query(Job).filter(Job.id.in_(job_ids)).update(
+            {Job.notified: True}, synchronize_session=False
+        )
+        session.commit()
+    finally:
+        session.close()

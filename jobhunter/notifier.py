@@ -6,15 +6,19 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
 
-def send_email(new_jobs: list[dict], to_email: str) -> bool:
+def send_email(new_jobs: list[dict], to_email: str | None = None) -> bool:
     """Send an HTML email listing new job postings."""
     smtp_host = os.getenv("SMTP_HOST", "smtp.gmail.com")
     smtp_port = int(os.getenv("SMTP_PORT", "587"))
     smtp_user = os.getenv("SMTP_USER", "")
     smtp_pass = os.getenv("SMTP_PASS", "")
+    to_email = to_email or os.getenv("TO_EMAIL", smtp_user)
 
     if not smtp_user or not smtp_pass:
         print("  Email not configured. Set SMTP_USER and SMTP_PASS in .env")
+        return False
+    if not to_email:
+        print("  Recipient not configured. Set TO_EMAIL in .env")
         return False
 
     subject = f"JobHunter: {len(new_jobs)} new job(s) found"
