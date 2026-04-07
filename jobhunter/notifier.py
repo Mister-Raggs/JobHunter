@@ -1,24 +1,24 @@
-"""Email notification for new job postings."""
+"""Email notification for new job postings via Resend."""
 
 import os
-import smtplib
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
+
+import requests
 
 
 def send_email(new_jobs: list[dict], to_email: str | None = None) -> bool:
-    """Send an HTML email listing new job postings."""
-    smtp_host = os.getenv("SMTP_HOST", "smtp.gmail.com")
-    smtp_port = int(os.getenv("SMTP_PORT", "587"))
-    smtp_user = os.getenv("SMTP_USER", "")
-    smtp_pass = os.getenv("SMTP_PASS", "")
-    to_email = to_email or os.getenv("TO_EMAIL", smtp_user)
+    """Send an HTML email listing new job postings via Resend API."""
+    api_key = os.getenv("RESEND_API_KEY", "")
+    from_email = os.getenv("FROM_EMAIL", "")
+    to_email = to_email or os.getenv("TO_EMAIL", "")
 
-    if not smtp_user or not smtp_pass:
-        print("  Email not configured. Set SMTP_USER and SMTP_PASS in .env")
+    if not api_key:
+        print("  Email not configured. Set RESEND_API_KEY in .env")
         return False
     if not to_email:
         print("  Recipient not configured. Set TO_EMAIL in .env")
+        return False
+    if not from_email:
+        print("  Sender not configured. Set FROM_EMAIL in .env")
         return False
 
     subject = f"JobHunter: {len(new_jobs)} new job(s) found"
@@ -41,15 +41,15 @@ def send_email(new_jobs: list[dict], to_email: str | None = None) -> bool:
         f"{rows}</table>"
     )
 
-    msg = MIMEMultipart("alternative")
-    msg["Subject"] = subject
-    msg["From"] = smtp_user
-    msg["To"] = to_email
-    msg.attach(MIMEText(html, "html"))
+    resp = requests.post(
+        "https://api.resend.com/emails",
+        headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+        json={"from": from_email, "to": [to_email], "subject": subject, "html": html},
+        timeout=15,
+    )
 
-    with smtplib.SMTP(smtp_host, smtp_port) as server:
-        server.starttls()
-        server.login(smtp_user, smtp_pass)
-        server.sendmail(smtp_user, to_email, msg.as_string())
+    if resp.status_code == 200 or resp.status_code == 201:
+        return True
 
-    return True
+    print(f"  Email failed: {resp.status_code} {resp.text}")
+    return False
