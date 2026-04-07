@@ -54,16 +54,13 @@ The `slug` is the company identifier in their job board URL (e.g., `https://job-
 
 ## Email Notifications
 
-To enable email alerts, add SMTP credentials to `.env`:
+Email is sent via [Resend](https://resend.com) (free tier: 3,000 emails/month). Add credentials to `.env`:
 
 ```
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_USER=you@gmail.com
-SMTP_PASS=your-app-password
+RESEND_API_KEY=re_xxxxxxxxxxxx   # API key from resend.com
+FROM_EMAIL=you@yourdomain.com    # Must be a verified sender in Resend
+TO_EMAIL=you@gmail.com           # Where to receive alerts
 ```
-
-For Gmail, generate an [app password](https://myaccount.google.com/apppasswords) instead of using your account password.
 
 ## Automation (VPS Deployment)
 
@@ -92,11 +89,9 @@ The cron job runs `jobhunter check --auto` every 30 minutes between 6am–8pm. I
 ### Credentials (.env)
 
 ```
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_USER=you@gmail.com
-SMTP_PASS=your-app-password   # Gmail: generate at myaccount.google.com/apppasswords
-TO_EMAIL=you@gmail.com        # Where to send job alerts
+RESEND_API_KEY=re_xxxxxxxxxxxx
+FROM_EMAIL=you@yourdomain.com
+TO_EMAIL=you@gmail.com
 ```
 
 The `.env` file lives only on the VPS — never commit it.
@@ -123,6 +118,21 @@ jobhunter check -c <new_company_key>
 jobhunter check -c <new_company_key> -e you@email.com
 ```
 
+## Testing
+
+```bash
+pip install -e ".[dev]"
+
+# Unit tests — no network, runs instantly
+pytest tests/test_database.py -v
+
+# Integration tests — hits live APIs (~30s)
+pytest tests/test_scrapers.py -v -m "not slow"
+
+# All tests including slow ones (Netflix Eightfold)
+pytest -v
+```
+
 ## Project Structure
 
 ```
@@ -130,14 +140,24 @@ jobhunter/
   app.py              CLI entry point
   config.py           Company definitions
   database.py         SQLite storage + deduplication
-  notifier.py         Email notifications
+  logger.py           Structured logging setup
+  notifier.py         Email notifications (Resend)
   scrapers/
-    greenhouse.py     Greenhouse JSON API (DoorDash, Discord, etc.)
+    greenhouse.py     Greenhouse JSON API (DoorDash, Glean, etc.)
     apple.py          Apple careers page scraper
-    ashby.py          Ashby posting API (Baseten, etc.)
-    eightfold.py      Eightfold careers API (Netflix, etc.)
-    phenom.py         Phenom People careers (CVS Health, etc.)
+    ashby.py          Ashby posting API (Baseten, Braintrust)
+    eightfold.py      Eightfold careers API (Netflix)
+    phenom.py         Phenom People careers (CVS Health)
+    qualcomm.py       Qualcomm (Playwright + pcsx API)
+    salesforce.py     Salesforce XML feed
     uber.py           Uber careers API
+scripts/
+  setup_cron.sh       Install cron job on VPS
+  remove_cron.sh      Remove cron job
+  deploy.sh           Deploy latest changes to VPS
+tests/
+  test_database.py    Unit tests for DB layer
+  test_scrapers.py    Integration tests for scrapers
 ```
 
 ## Supported Scrapers

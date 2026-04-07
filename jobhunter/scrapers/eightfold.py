@@ -52,7 +52,7 @@ class EightfoldScraper:
                     "num": PAGE_SIZE,
                     "sort_by": "timestamp",
                 },
-                timeout=30,
+                timeout=60,
             )
             resp.raise_for_status()
             data = resp.json()
