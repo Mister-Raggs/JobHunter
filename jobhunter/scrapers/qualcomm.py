@@ -69,7 +69,8 @@ class QualcommScraper:
                 job_id = str(item["id"])
                 locs = item.get("locations", [])
                 location = locs[0] if locs else ""
-                url = item.get("positionUrl", f"{JOB_BASE_URL}?pid={job_id}")
+                raw_url = item.get("positionUrl", f"/careers/apply?pid={job_id}")
+                url = raw_url if raw_url.startswith("http") else f"https://careers.qualcomm.com{raw_url}"
 
                 all_jobs.append(
                     {
