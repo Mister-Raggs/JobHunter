@@ -6,9 +6,17 @@
 
 set -e
 
-JOBHUNTER_BIN="$(which jobhunter 2>/dev/null || echo "")"
-if [ -z "$JOBHUNTER_BIN" ]; then
-    echo "Error: 'jobhunter' not found in PATH. Make sure you've run: pip install -e ."
+# Resolve jobhunter binary — prefer venv, fall back to system PATH
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_DIR="$(dirname "$SCRIPT_DIR")"
+VENV_BIN="$REPO_DIR/.venv/bin/jobhunter"
+
+if [ -f "$VENV_BIN" ]; then
+    JOBHUNTER_BIN="$VENV_BIN"
+elif command -v jobhunter &>/dev/null; then
+    JOBHUNTER_BIN="$(which jobhunter)"
+else
+    echo "Error: 'jobhunter' not found. Run: pip install -e . inside your venv."
     exit 1
 fi
 
