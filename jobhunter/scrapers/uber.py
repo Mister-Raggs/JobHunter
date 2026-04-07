@@ -25,7 +25,7 @@ MAX_PAGES = 30  # safety cap — 50 * 30 = 1500 jobs max
 
 
 class UberScraper:
-    def fetch_jobs(self, slug: str = "uber", max_pages: int = MAX_PAGES) -> list[dict]:
+    def fetch_jobs(self, slug: str = "uber", max_pages: int = MAX_PAGES, known_ids: set[str] | None = None) -> list[dict]:
         """Fetch all open jobs from Uber's careers portal."""
         session = requests.Session()
         session.headers.update(HEADERS)
@@ -53,13 +53,16 @@ class UberScraper:
                 total_obj = data.get("data", {}).get("totalResults", {})
                 total = total_obj.get("low", 0) if isinstance(total_obj, dict) else int(total_obj)
 
+            done = False
             for item in results:
                 job_id = str(item["id"])
+                if known_ids and job_id in known_ids:
+                    done = True
+                    break
                 loc = item.get("location", "")
                 if isinstance(loc, dict):
                     parts = [loc.get("city", ""), loc.get("region", ""), loc.get("countryName", "")]
                     loc = ", ".join(p for p in parts if p)
-
                 all_jobs.append(
                     {
                         "external_id": job_id,
@@ -69,6 +72,8 @@ class UberScraper:
                         "posted_at": item.get("creationDate", ""),
                     }
                 )
+            if done:
+                break
 
             if total and len(all_jobs) >= total:
                 break

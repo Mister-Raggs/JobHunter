@@ -30,7 +30,7 @@ def _text(el: ET.Element | None) -> str:
 
 
 class SalesforceScraper:
-    def fetch_jobs(self, slug: str = "salesforce") -> list[dict]:
+    def fetch_jobs(self, slug: str = "salesforce", known_ids: set[str] | None = None) -> list[dict]:
         """Fetch all open jobs from Salesforce's XML feed."""
         resp = requests.get(FEED_URL, headers=HEADERS, timeout=30)
         resp.raise_for_status()

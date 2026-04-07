@@ -23,7 +23,7 @@ MAX_PAGES = 20  # safety cap
 
 
 class EightfoldScraper:
-    def fetch_jobs(self, slug: str, max_pages: int = MAX_PAGES) -> list[dict]:
+    def fetch_jobs(self, slug: str, max_pages: int = MAX_PAGES, known_ids: set[str] | None = None) -> list[dict]:
         """Fetch all open jobs from an Eightfold-hosted career site."""
         host, domain, job_base_url = EIGHTFOLD_HOSTS[slug]
 
@@ -64,10 +64,13 @@ class EightfoldScraper:
             if total is None:
                 total = data.get("count", 0)
 
+            done = False
             for item in positions:
                 job_id = str(item["id"])
+                if known_ids and job_id in known_ids:
+                    done = True
+                    break
                 loc = item.get("location", "")
-
                 all_jobs.append(
                     {
                         "external_id": job_id,
@@ -77,6 +80,8 @@ class EightfoldScraper:
                         "posted_at": "",
                     }
                 )
+            if done:
+                break
 
             start += PAGE_SIZE
             if total and len(all_jobs) >= total:

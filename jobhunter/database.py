@@ -97,6 +97,16 @@ def job_count(company: str | None = None, db_path: Path | None = None) -> int:
         session.close()
 
 
+def get_known_ids(company: str, db_path: Path | None = None) -> set[str]:
+    """Return the set of external_ids already stored for a company."""
+    session = _get_session(db_path)
+    try:
+        rows = session.query(Job.external_id).filter_by(company=company).all()
+        return {r[0] for r in rows}
+    finally:
+        session.close()
+
+
 def get_unnotified_jobs(db_path: Path | None = None) -> list[Job]:
     """Return all jobs that have not yet been emailed."""
     session = _get_session(db_path)

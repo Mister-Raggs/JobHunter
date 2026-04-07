@@ -10,7 +10,7 @@ API_BASE = "https://api.ashbyhq.com/posting-api/job-board"
 
 
 class AshbyScraper:
-    def fetch_jobs(self, slug: str) -> list[dict]:
+    def fetch_jobs(self, slug: str, known_ids: set[str] | None = None) -> list[dict]:
         """Fetch all open jobs for an Ashby board slug."""
         url = f"{API_BASE}/{slug}"
         resp = requests.get(url, timeout=30)

@@ -30,7 +30,7 @@ MAX_PAGES = 10  # safety cap — 20 results/page = 200 jobs max
 
 
 class AppleScraper:
-    def fetch_jobs(self, slug: str = "apple", max_pages: int = MAX_PAGES) -> list[dict]:
+    def fetch_jobs(self, slug: str = "apple", max_pages: int = MAX_PAGES, known_ids: set[str] | None = None) -> list[dict]:
         """Fetch recent job postings from Apple's careers site."""
         session = requests.Session()
         session.headers.update(HEADERS)
@@ -62,20 +62,22 @@ class AppleScraper:
             if total_records is None:
                 total_records = search_data.get("totalRecords", 0)
 
+            done = False
             for item in results:
                 position_id = str(item.get("positionId", item.get("id", "")))
+                if known_ids and position_id in known_ids:
+                    done = True
+                    break
                 title = item.get("postingTitle", "")
                 locations = item.get("locations", [])
                 location = locations[0].get("name", "") if locations else ""
                 posted_date = item.get("postingDate", "")
                 transformed = item.get("transformedPostingTitle", "")
-
                 url = (
                     f"{JOB_BASE_URL}/{position_id}/{transformed}"
                     if transformed
                     else f"{JOB_BASE_URL}/{position_id}"
                 )
-
                 all_jobs.append(
                     {
                         "external_id": position_id,
@@ -85,6 +87,8 @@ class AppleScraper:
                         "posted_at": posted_date,
                     }
                 )
+            if done:
+                break
 
             if total_records and len(all_jobs) >= total_records:
                 break

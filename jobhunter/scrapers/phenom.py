@@ -34,7 +34,7 @@ PAGE_SIZE = 100
 
 
 class PhenomScraper:
-    def fetch_jobs(self, slug: str, max_pages: int = MAX_PAGES) -> list[dict]:
+    def fetch_jobs(self, slug: str, max_pages: int = MAX_PAGES, known_ids: set[str] | None = None) -> list[dict]:
         """Fetch all open jobs from a Phenom-hosted career site."""
         search_url, job_base_url = PHENOM_HOSTS[slug]
 
@@ -66,8 +66,12 @@ class PhenomScraper:
             if total is None:
                 total = search_data.get("totalHits", 0)
 
+            done = False
             for item in jobs:
                 job_id = str(item.get("jobId", item.get("reqId", "")))
+                if known_ids and job_id in known_ids:
+                    done = True
+                    break
                 all_jobs.append(
                     {
                         "external_id": job_id,
@@ -77,6 +81,8 @@ class PhenomScraper:
                         "posted_at": item.get("postedDate", item.get("dateCreated", "")),
                     }
                 )
+            if done:
+                break
 
             if total and len(all_jobs) >= total:
                 break

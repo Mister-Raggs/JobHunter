@@ -19,7 +19,7 @@ MAX_PAGES = 30
 
 
 class QualcommScraper:
-    def fetch_jobs(self, slug: str = "qualcomm", max_pages: int = MAX_PAGES) -> list[dict]:
+    def fetch_jobs(self, slug: str = "qualcomm", max_pages: int = MAX_PAGES, known_ids: set[str] | None = None) -> list[dict]:
         """Fetch all open US jobs from Qualcomm's careers site."""
         # Step 1: get session cookies via a real browser load
         cookies = self._get_session_cookies()
@@ -65,13 +65,16 @@ class QualcommScraper:
             if total is None:
                 total = inner.get("count", 0)
 
+            done = False
             for item in positions:
                 job_id = str(item["id"])
+                if known_ids and job_id in known_ids:
+                    done = True
+                    break
                 locs = item.get("locations", [])
                 location = locs[0] if locs else ""
                 raw_url = item.get("positionUrl", f"/careers/apply?pid={job_id}")
                 url = raw_url if raw_url.startswith("http") else f"https://careers.qualcomm.com{raw_url}"
-
                 all_jobs.append(
                     {
                         "external_id": job_id,
@@ -81,6 +84,8 @@ class QualcommScraper:
                         "posted_at": str(item.get("postedTs", "")),
                     }
                 )
+            if done:
+                break
 
             start += PAGE_SIZE
             if total and len(all_jobs) >= total:

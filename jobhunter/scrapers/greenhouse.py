@@ -11,7 +11,7 @@ API_BASE = "https://boards-api.greenhouse.io/v1/boards"
 
 
 class GreenhouseScraper:
-    def fetch_jobs(self, slug: str) -> list[dict]:
+    def fetch_jobs(self, slug: str, known_ids: set[str] | None = None) -> list[dict]:
         """Fetch all open jobs for a Greenhouse board slug."""
         url = f"{API_BASE}/{slug}/jobs"
         resp = requests.get(url, timeout=30)
