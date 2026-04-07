@@ -1,40 +1,58 @@
 """CLI entry point for JobHunter."""
 
 import argparse
+import time
+import traceback
 
 from dotenv import load_dotenv
 
 from . import __version__
 from .config import COMPANIES
-from .database import add_jobs, get_all_jobs, get_unnotified_jobs, job_count, mark_notified
+from .database import add_jobs, get_all_jobs, get_known_ids, get_unnotified_jobs, job_count, mark_notified
+from .logger import get_logger
 from .notifier import send_email
 from .scrapers import get_scraper
 
 
 def cmd_check(args: argparse.Namespace) -> None:
     """Check configured companies for new job postings."""
+    log = get_logger()
     keys = [k.strip() for k in args.companies.split(",")] if args.companies else list(COMPANIES)
     auto = getattr(args, "auto", False)
 
     all_new: list[dict] = []
+    run_start = time.monotonic()
+    errors: list[str] = []
+
+    log.info("run_start companies=%d", len(keys))
 
     for key in keys:
         config = COMPANIES.get(key)
         if not config:
+            log.warning("unknown_company key=%s", key)
             if not auto:
                 print(f"Unknown company: {key}")
             continue
 
         if not auto:
             print(f"\nChecking {config.name}...")
+
         scraper = get_scraper(config.scraper)
+        t0 = time.monotonic()
 
         try:
-            jobs = scraper.fetch_jobs(config.slug)
-            if not auto:
-                print(f"  {len(jobs)} open listings")
+            known_ids = get_known_ids(key)
+            jobs = scraper.fetch_jobs(config.slug, known_ids=known_ids)
+            duration = time.monotonic() - t0
 
             new_jobs = add_jobs(jobs, key)
+            log.info(
+                "company=%s scraper=%s duration=%.2fs fetched=%d new=%d",
+                key, config.scraper, duration, len(jobs), len(new_jobs),
+            )
+
+            if not auto:
+                print(f"  {len(jobs)} open listings")
             if new_jobs:
                 if not auto:
                     print(f"  {len(new_jobs)} NEW:")
@@ -44,16 +62,24 @@ def cmd_check(args: argparse.Namespace) -> None:
                 all_new.extend([{**j, "company": config.name} for j in new_jobs])
             elif not auto:
                 print("  No new jobs")
+
         except Exception as e:
+            duration = time.monotonic() - t0
+            log.error(
+                "company=%s scraper=%s duration=%.2fs error=%s",
+                key, config.scraper, duration, e,
+            )
+            log.debug(traceback.format_exc())
+            errors.append(f"{config.name}: {e}")
             if not auto:
                 print(f"  Error: {e}")
+
+    total_duration = time.monotonic() - run_start
 
     if not auto:
         print(f"\n--- {len(all_new)} new job(s) found ---")
 
     if auto:
-        # In auto mode: email any unnotified jobs (covers jobs found in previous
-        # runs that failed to send), then mark them notified.
         unnotified = get_unnotified_jobs()
         if unnotified:
             jobs_to_send = [
@@ -61,12 +87,24 @@ def cmd_check(args: argparse.Namespace) -> None:
                  "title": j.title, "location": j.location, "url": j.url}
                 for j in unnotified
             ]
-            if send_email(jobs_to_send):
+            emailed = send_email(jobs_to_send)
+            if emailed:
                 mark_notified([j.id for j in unnotified])
-    elif all_new and args.email:
-        print(f"Sending email to {args.email}...")
-        if send_email(all_new, args.email):
-            print("Email sent!")
+            log.info(
+                "run_end duration=%.2fs total_new=%d emailed=%d email_sent=%s errors=%d",
+                total_duration, len(all_new), len(unnotified), emailed, len(errors),
+            )
+        else:
+            log.info(
+                "run_end duration=%.2fs total_new=0 emailed=0 email_sent=false errors=%d",
+                total_duration, len(errors),
+            )
+    else:
+        log.info("run_end duration=%.2fs total_new=%d errors=%d", total_duration, len(all_new), len(errors))
+        if all_new and args.email:
+            print(f"Sending email to {args.email}...")
+            if send_email(all_new, args.email):
+                print("Email sent!")
 
 
 def cmd_list(args: argparse.Namespace) -> None:
