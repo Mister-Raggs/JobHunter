@@ -69,22 +69,32 @@ For reliable 24/7 scheduling, deploy to a VPS (Hetzner, DigitalOcean, etc. — ~
 ### First-time VPS setup
 
 ```bash
-# On the VPS
+# On the VPS (Ubuntu)
+apt update && apt upgrade -y
+apt install -y python3 python3-pip python3-venv git
+
 git clone https://github.com/your-username/JobHunter.git
 cd JobHunter
-python -m venv .venv
+python3 -m venv .venv
 .venv/bin/pip install -e .
 .venv/bin/playwright install chromium
 .venv/bin/playwright install-deps chromium  # Ubuntu system deps
 
+# Set timezone before installing cron
+timedatectl set-timezone America/Los_Angeles
+
 # Copy credentials from local machine (run this locally)
-scp .env user@your-vps-ip:~/JobHunter/.env
+scp .env root@your-vps-ip:~/JobHunter/.env
 
 # Install the cron job (on VPS)
 bash scripts/setup_cron.sh
 ```
 
-The cron job runs `jobhunter check --auto` every 30 minutes between 6am–8pm. It emails new jobs automatically and marks them so you only get notified once.
+The cron job runs `jobhunter check --auto` every 30 minutes between 6am–8pm in the VPS system timezone. Set your timezone before installing the cron:
+
+```bash
+timedatectl set-timezone America/Los_Angeles
+```
 
 ### Credentials (.env)
 
@@ -102,7 +112,7 @@ After adding a new company or making changes locally:
 
 ```bash
 git push origin main
-bash scripts/deploy.sh user@your-vps-ip
+bash scripts/deploy.sh root@your-vps-ip
 ```
 
 ### Validating before deploying
