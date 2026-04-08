@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Sets up a cron job to run jobhunter check --auto every 30 minutes, 6am-8pm UTC.
-# Adjust the hour range if your VPS is in a different timezone.
+# Sets up a cron job to run jobhunter check --auto every 30 minutes, 6am-8pm.
+# Hours are interpreted in the VPS system timezone.
+# Set your timezone first: timedatectl set-timezone America/Los_Angeles
 #
 # Usage: bash scripts/setup_cron.sh
 
@@ -20,7 +21,7 @@ else
     exit 1
 fi
 
-# Cron expression: every 30 min, hours 6-20 (6am-8pm UTC)
+# Cron expression: every 30 min, hours 6-20 (6am-8pm in system timezone)
 CRON_EXPR="*/30 6-20 * * * $JOBHUNTER_BIN check --auto >> /var/log/jobhunter.log 2>&1"
 
 # Check if already installed
@@ -36,7 +37,7 @@ fi
 echo "Cron job installed:"
 echo "  $CRON_EXPR"
 echo ""
-echo "JobHunter will check for new jobs every 30 minutes between 6am-8pm UTC."
+echo "JobHunter will check for new jobs every 30 minutes between 6am-8pm (system timezone: $(timedatectl show --property=Timezone --value 2>/dev/null || echo 'unknown'))."
 echo "Logs: /var/log/jobhunter.log"
 echo ""
 echo "To remove: bash scripts/remove_cron.sh"
