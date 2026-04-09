@@ -1,6 +1,8 @@
 # JobHunter
 
-Track new job postings from specific companies. Pulls listings directly from company job boards, stores them in SQLite, and notifies you about new openings.
+Track new job postings from specific companies. Pulls listings directly from company job boards, stores them in SQLite, and notifies you about new openings via email.
+
+**[Live Dashboard →](http://167.172.216.126)**
 
 Currently tracking: **DoorDash**, **Nuro**, **Otter.ai**, **CoreWeave**, **Glean** (Greenhouse), **Apple** (careers page), **Uber** (careers API), **Baseten**, **Braintrust** (Ashby), **Netflix** (Eightfold), **CVS Health** (Phenom), **Salesforce** (XML feed), and **Qualcomm** (Playwright + Eightfold API).
 
@@ -88,6 +90,12 @@ scp .env root@your-vps-ip:~/JobHunter/.env
 
 # Install the cron job (on VPS)
 bash scripts/setup_cron.sh
+
+# Optional: serve the live dashboard via nginx
+apt install nginx -y
+ln -s ~/JobHunter/data/report.html /var/www/html/index.html
+systemctl enable nginx && systemctl start nginx
+# Dashboard will be live at http://your-vps-ip after the first cron run
 ```
 
 The cron job runs `jobhunter check --auto` every 30 minutes between 6am–8pm in the VPS system timezone. Set your timezone before installing the cron:
@@ -152,6 +160,7 @@ jobhunter/
   database.py         SQLite storage + deduplication
   logger.py           Structured logging setup
   notifier.py         Email notifications (Resend)
+  report.py           Static HTML dashboard generator
   scrapers/
     greenhouse.py     Greenhouse JSON API (DoorDash, Glean, etc.)
     apple.py          Apple careers page scraper
