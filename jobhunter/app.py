@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 from . import __version__
 from .config import COMPANIES
 from .database import add_jobs, get_all_jobs, get_known_ids, get_unnotified_jobs, job_count, mark_notified
+from .report import generate_report
 from .logger import get_logger
 from .notifier import send_email
 from .scrapers import get_scraper
@@ -25,6 +26,13 @@ def cmd_check(args: argparse.Namespace) -> None:
     errors: list[str] = []
 
     log.info("run_start companies=%d", len(keys))
+
+    if auto:
+        try:
+            generate_report()
+            log.info("report_generated")
+        except Exception as e:
+            log.warning("report_generation_failed error=%s", e)
 
     for key in keys:
         config = COMPANIES.get(key)

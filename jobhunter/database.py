@@ -116,6 +116,15 @@ def get_unnotified_jobs(db_path: Path | None = None) -> list[Job]:
         session.close()
 
 
+def get_notified_jobs(db_path: Path | None = None) -> list[Job]:
+    """Return all jobs that have already been emailed, ordered newest first."""
+    session = _get_session(db_path)
+    try:
+        return session.query(Job).filter_by(notified=True).order_by(Job.discovered_at.desc()).all()
+    finally:
+        session.close()
+
+
 def mark_notified(job_ids: list[int], db_path: Path | None = None) -> None:
     """Mark jobs as notified by their primary key IDs."""
     if not job_ids:
