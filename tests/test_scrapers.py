@@ -9,9 +9,11 @@ Skip slow tests:
 
 import pytest
 
+from jobhunter.scrapers.apple import AppleScraper
 from jobhunter.scrapers.ashby import AshbyScraper
 from jobhunter.scrapers.eightfold import EightfoldScraper
 from jobhunter.scrapers.greenhouse import GreenhouseScraper
+from jobhunter.scrapers.lever import LeverScraper
 from jobhunter.scrapers.salesforce import SalesforceScraper
 from jobhunter.scrapers.uber import UberScraper
 
@@ -95,4 +97,70 @@ def test_uber_early_exit():
 
 def test_salesforce():
     jobs = SalesforceScraper().fetch_jobs()
+    _assert_valid_jobs(jobs)
+
+
+# --- Apple ---
+
+def test_apple_us_only():
+    """All returned jobs should be US locations (not international retail)."""
+    jobs = AppleScraper().fetch_jobs(max_pages=1)
+    _assert_valid_jobs(jobs)
+    for job in jobs:
+        assert job["url"].startswith("https://jobs.apple.com"), f"Unexpected URL: {job['url']}"
+
+
+def test_apple_no_international_retail(tmp_path):
+    """Page 1 should not be dominated by international Specialist retail roles."""
+    jobs = AppleScraper().fetch_jobs(max_pages=1)
+    # With US filter, titles like 'IN-Specialist' or 'TR-Specialist' should not appear
+    intl_retail = [j for j in jobs if j["title"].startswith(("IN-", "TR-", "UAE-", "DE-", "FR-", "JP-"))]
+    assert len(intl_retail) == 0, f"International retail jobs leaked through: {[j['title'] for j in intl_retail]}"
+
+
+def test_apple_page_level_early_exit():
+    """Page-level early exit: known page should return 0, not break mid-page."""
+    scraper = AppleScraper()
+    first_page = scraper.fetch_jobs(max_pages=1)
+    known_ids = {j["external_id"] for j in first_page}
+    # Second fetch with all page-1 IDs known should return 0
+    second = scraper.fetch_jobs(max_pages=1, known_ids=known_ids)
+    assert len(second) == 0
+
+
+# --- Lever ---
+
+def test_lever_zilliz():
+    jobs = LeverScraper().fetch_jobs("zilliz")
+    _assert_valid_jobs(jobs)
+
+
+def test_lever_early_exit():
+    """With all jobs marked known, fetch should return 0."""
+    scraper = LeverScraper()
+    jobs = scraper.fetch_jobs("zilliz")
+    known_ids = {j["external_id"] for j in jobs}
+    second = scraper.fetch_jobs("zilliz", known_ids=known_ids)
+    assert len(second) == 0
+
+
+# --- New companies ---
+
+def test_greenhouse_anthropic():
+    jobs = GreenhouseScraper().fetch_jobs("anthropic")
+    _assert_valid_jobs(jobs, min_count=10)
+
+
+def test_greenhouse_xai():
+    jobs = GreenhouseScraper().fetch_jobs("xai")
+    _assert_valid_jobs(jobs, min_count=5)
+
+
+def test_greenhouse_singlestore():
+    jobs = GreenhouseScraper().fetch_jobs("singlestore")
+    _assert_valid_jobs(jobs)
+
+
+def test_ashby_weaviate():
+    jobs = AshbyScraper().fetch_jobs("weaviate")
     _assert_valid_jobs(jobs)

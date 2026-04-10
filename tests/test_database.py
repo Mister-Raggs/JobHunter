@@ -5,6 +5,7 @@ import pytest
 from jobhunter.database import (
     add_jobs,
     get_known_ids,
+    get_notified_jobs,
     get_unnotified_jobs,
     job_count,
     mark_notified,
@@ -99,3 +100,28 @@ def test_mark_notified_empty_list(db):
     add_jobs(SAMPLE_JOBS, "testco", db_path=db)
     mark_notified([], db_path=db)
     assert len(get_unnotified_jobs(db_path=db)) == 3
+
+
+def test_get_notified_jobs_empty(db):
+    add_jobs(SAMPLE_JOBS, "testco", db_path=db)
+    assert get_notified_jobs(db_path=db) == []
+
+
+def test_get_notified_jobs_after_mark(db):
+    add_jobs(SAMPLE_JOBS, "testco", db_path=db)
+    unnotified = get_unnotified_jobs(db_path=db)
+    marked_id = unnotified[0].external_id
+    mark_notified([unnotified[0].id], db_path=db)
+
+    notified = get_notified_jobs(db_path=db)
+    assert len(notified) == 1
+    assert notified[0].external_id == marked_id
+
+
+def test_get_notified_jobs_all(db):
+    add_jobs(SAMPLE_JOBS, "testco", db_path=db)
+    unnotified = get_unnotified_jobs(db_path=db)
+    mark_notified([j.id for j in unnotified], db_path=db)
+
+    assert len(get_notified_jobs(db_path=db)) == 3
+    assert get_unnotified_jobs(db_path=db) == []
