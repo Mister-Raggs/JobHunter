@@ -106,4 +106,24 @@ COMPANIES: dict[str, CompanyConfig] = {
         scraper="greenhouse",
         slug="arizeai",
     ),
+    "domino": CompanyConfig(
+        name="Domino Data Lab",
+        scraper="greenhouse",
+        slug="dominodatalab",
+    ),
+    "weaviate": CompanyConfig(
+        name="Weaviate",
+        scraper="ashby",
+        slug="weaviate",
+    ),
+    "singlestore": CompanyConfig(
+        name="SingleStore",
+        scraper="greenhouse",
+        slug="singlestore",
+    ),
+    "zilliz": CompanyConfig(
+        name="Zilliz",
+        scraper="lever",
+        slug="zilliz",
+    ),
 }
