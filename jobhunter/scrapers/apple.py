@@ -42,7 +42,7 @@ class AppleScraper:
         while page <= max_pages:
             resp = session.get(
                 SEARCH_URL,
-                params={"sort": "newest", "page": page},
+                params={"sort": "newest", "page": page, "location": "united-states-USA"},
                 timeout=30,
             )
             resp.raise_for_status()
@@ -62,12 +62,11 @@ class AppleScraper:
             if total_records is None:
                 total_records = search_data.get("totalRecords", 0)
 
-            done = False
+            page_new = 0
             for item in results:
                 position_id = str(item.get("positionId", item.get("id", "")))
                 if known_ids and position_id in known_ids:
-                    done = True
-                    break
+                    continue
                 title = item.get("postingTitle", "")
                 locations = item.get("locations", [])
                 location = locations[0].get("name", "") if locations else ""
@@ -87,7 +86,8 @@ class AppleScraper:
                         "posted_at": posted_date,
                     }
                 )
-            if done:
+                page_new += 1
+            if known_ids and page_new == 0:
                 break
 
             if total_records and len(all_jobs) >= total_records:
