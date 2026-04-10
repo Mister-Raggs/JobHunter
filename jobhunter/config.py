@@ -76,4 +76,34 @@ COMPANIES: dict[str, CompanyConfig] = {
         scraper="qualcomm",
         slug="qualcomm",
     ),
+    "anthropic": CompanyConfig(
+        name="Anthropic",
+        scraper="greenhouse",
+        slug="anthropic",
+    ),
+    "xai": CompanyConfig(
+        name="xAI",
+        scraper="greenhouse",
+        slug="xai",
+    ),
+    "databricks": CompanyConfig(
+        name="Databricks",
+        scraper="greenhouse",
+        slug="databricks",
+    ),
+    "scaleai": CompanyConfig(
+        name="Scale AI",
+        scraper="greenhouse",
+        slug="scaleai",
+    ),
+    "pinecone": CompanyConfig(
+        name="Pinecone",
+        scraper="ashby",
+        slug="pinecone",
+    ),
+    "arizeai": CompanyConfig(
+        name="Arize AI",
+        scraper="greenhouse",
+        slug="arizeai",
+    ),
 }
